@@ -1,9 +1,11 @@
 package co.com.bancolombia.api;
 
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
-import co.com.bancolombia.model.estados.Estados;
+import co.com.bancolombia.api.mapper.SolicitudMapper;
+import co.com.bancolombia.api.mapper.SolicitudRequestMapper;
+import co.com.bancolombia.model.estados.gateways.EstadosRepository;
 import co.com.bancolombia.model.solicitud.Solicitud;
-import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
+import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.usecase.solicitud.SolicitudUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,19 +18,22 @@ import reactor.core.publisher.Mono;
 public class Handler {
 
     private final SolicitudUseCase solicitudUseCase;
+    private final SolicitudMapper solicitudMapper;
+    private final SolicitudRequestMapper solicitudRequestMapper;
+    private final EstadosRepository estadosRepository;
+    private final TipoPrestamoRepository tipoPrestamoRepository;
 
     public Mono<ServerResponse> crearSolicitud(ServerRequest serverRequest) {
         return serverRequest.bodyToMono(SolicitudRequestDto.class)
-                .map(dto -> Solicitud.builder()
-                        .monto(dto.getMonto())
-                        .plazo(dto.getPlazo())
-                        .email(dto.getEmail())
-                        .documentoIdentidad(dto.getDocumentoIdentidad())
-                        .idTipoPrestamo(dto.getTipoPrestamoId())
-                        .idEstado(1)
-                        .build())
+                .map(solicitudRequestMapper::toModel)
                 .flatMap(solicitudUseCase::ejecutar)
-                .flatMap(saved -> ServerResponse.ok().bodyValue(saved))
+                .flatMap(saved ->
+                        Mono.zip(
+                                estadosRepository.findById(saved.getIdEstado()),
+                                tipoPrestamoRepository.findById(saved.getIdTipoPrestamo())
+                        ).map(tuple -> solicitudMapper.toDto(saved, tuple.getT1(), tuple.getT2()))
+                )
+                .flatMap(dto -> ServerResponse.ok().bodyValue(dto))
                 .onErrorResume(error ->
                         ServerResponse.badRequest().bodyValue(error.getMessage()));
     }
