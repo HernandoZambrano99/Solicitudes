@@ -1,12 +1,11 @@
 package co.com.bancolombia.api;
 
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
+import co.com.bancolombia.api.exceptionHandler.RequestValidationException;
 import co.com.bancolombia.api.mapper.SolicitudMapper;
 import co.com.bancolombia.api.mapper.SolicitudRequestMapper;
-import co.com.bancolombia.model.estados.gateways.EstadosRepository;
-import co.com.bancolombia.model.solicitud.Solicitud;
-import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.usecase.solicitud.SolicitudUseCase;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -20,24 +19,31 @@ public class Handler {
     private final SolicitudUseCase solicitudUseCase;
     private final SolicitudMapper solicitudMapper;
     private final SolicitudRequestMapper solicitudRequestMapper;
-    private final EstadosRepository estadosRepository;
-    private final TipoPrestamoRepository tipoPrestamoRepository;
+    private final Validator validator;
 
     public Mono<ServerResponse> crearSolicitud(ServerRequest serverRequest) {
         return serverRequest.bodyToMono(SolicitudRequestDto.class)
+                .flatMap(dto -> {
+                    var violations = validator.validate(dto);
+                    if (!violations.isEmpty()) {
+                        var details = violations.stream()
+                                .map(v -> new RequestValidationException.FieldErrorDetail(
+                                        v.getPropertyPath().toString(),
+                                        v.getMessage()))
+                                .toList();
+                        return Mono.error(new RequestValidationException(details));
+                    }
+                    return Mono.just(dto);
+                })
                 .map(solicitudRequestMapper::toModel)
                 .flatMap(solicitudUseCase::ejecutar)
-                .flatMap(saved ->
-                        Mono.zip(
-                                estadosRepository.findById(saved.getIdEstado()),
-                                tipoPrestamoRepository.findById(saved.getIdTipoPrestamo())
-                        ).map(tuple -> solicitudMapper.toDto(saved, tuple.getT1(), tuple.getT2()))
-                )
-                .flatMap(dto -> ServerResponse.ok().bodyValue(dto))
-                .onErrorResume(error ->
-                        ServerResponse.badRequest().bodyValue(error.getMessage()));
+                .map(solicitudDetalle -> solicitudMapper.toDto(
+                        solicitudDetalle.getSolicitud(),
+                        solicitudDetalle.getEstado(),
+                        solicitudDetalle.getTipoPrestamo()
+                ))
+                .flatMap(dto -> ServerResponse.ok().bodyValue(dto));
     }
-
 
     public Mono<ServerResponse> getSolicitudById(ServerRequest serverRequest) {
         String id = serverRequest.pathVariable("id");
