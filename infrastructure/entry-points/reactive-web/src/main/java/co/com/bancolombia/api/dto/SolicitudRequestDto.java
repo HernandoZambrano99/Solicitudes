@@ -24,7 +24,6 @@ public class SolicitudRequestDto {
     private Integer plazo;
 
     @Email(message = "Formato de correo no válido")
-    @NotBlank(message = "El email es obligatorio")
     private String email;
 
     @NotBlank(message = "El documento es obligatorio")

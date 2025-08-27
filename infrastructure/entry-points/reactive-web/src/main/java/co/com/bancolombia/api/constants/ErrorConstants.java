@@ -13,5 +13,4 @@ public final class ErrorConstants {
     public static final String CONFLICT = "Conflict";
     public static final String BAD_REQUEST = "Bad Request";
     public static final String NOT_FOUND = "Not Found";
-    public static final String EMAIL_ALREADY_EXISTS = "El correo ya está registrado";
 }

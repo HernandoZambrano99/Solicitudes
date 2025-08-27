@@ -2,7 +2,6 @@ package co.com.bancolombia.api;
 
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudResponseDto;
-import co.com.bancolombia.model.SolicitudDetalle;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
