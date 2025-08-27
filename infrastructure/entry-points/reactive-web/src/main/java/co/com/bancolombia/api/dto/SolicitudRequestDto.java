@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,7 +20,7 @@ public class SolicitudRequestDto {
 
     @NotNull(message = "El monto es obligatorio")
     @Positive(message = "El monto debe ser mayor a 0")
-    private Double monto;
+    private BigDecimal monto;
 
     @NotNull(message = "El plazo es obligatorio")
     private Integer plazo;

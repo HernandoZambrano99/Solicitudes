@@ -4,6 +4,8 @@ import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.math.BigDecimal;
+
 @Table("solicitud")
 @Getter
 @Setter
@@ -13,7 +15,7 @@ import org.springframework.data.relational.core.mapping.Table;
 public class SolicitudEntity {
     @Id
     private Integer idSolicitud;
-    private Double monto;
+    private BigDecimal monto;
     private Integer plazo;
     private String email;
     private String documentoIdentidad;

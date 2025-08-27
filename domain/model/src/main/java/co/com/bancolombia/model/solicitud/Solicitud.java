@@ -2,6 +2,8 @@ package co.com.bancolombia.model.solicitud;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -9,7 +11,7 @@ import lombok.*;
 @Builder(toBuilder = true)
 public class Solicitud {
     private Integer idSolicitud;
-    private Double monto;
+    private BigDecimal monto;
     private Integer plazo;
     private String email;
     private String documentoIdentidad;

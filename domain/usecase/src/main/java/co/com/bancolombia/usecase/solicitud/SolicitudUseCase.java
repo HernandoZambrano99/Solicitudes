@@ -13,6 +13,7 @@ import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.util.logging.Logger;
 
 @RequiredArgsConstructor
@@ -48,11 +49,15 @@ public class SolicitudUseCase {
     }
 
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {
-        Double monto = solicitud.getMonto();
-        if (monto < tipo.getMontoMinimo() || monto > tipo.getMontoMaximo()) {
+        BigDecimal monto = solicitud.getMonto();
+        BigDecimal minimo = tipo.getMontoMinimo();
+        BigDecimal maximo = tipo.getMontoMaximo();
+
+        if (monto.compareTo(minimo) < 0 || monto.compareTo(maximo) > 0) {
             logger.warning(LogsConstants.AMOUNT_OUT_RANGE + monto);
-            return Mono.error(new MontoFueraDeRangoException(monto, tipo.getMontoMinimo(), tipo.getMontoMaximo()));
+            return Mono.error(new MontoFueraDeRangoException(monto, minimo, maximo));
         }
+
         solicitud.setIdTipoPrestamo(tipo.getIdTipoPrestamo());
         return Mono.just(solicitud);
     }

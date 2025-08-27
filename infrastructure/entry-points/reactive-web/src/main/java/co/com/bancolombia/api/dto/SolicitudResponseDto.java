@@ -3,6 +3,8 @@ package co.com.bancolombia.api.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -14,7 +16,7 @@ public class SolicitudResponseDto {
     private String documentoIdentidad;
     private String estado;
     private String tipoPrestamo;
-    private Double monto;
+    private BigDecimal monto;
     private Integer plazo;
     private String email;
 }

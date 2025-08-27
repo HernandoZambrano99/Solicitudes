@@ -2,6 +2,8 @@ package co.com.bancolombia.model.tipoprestamo;
 
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -10,8 +12,8 @@ import lombok.*;
 public class TipoPrestamo {
     private Integer idTipoPrestamo;
     private String nombre;
-    private Double montoMinimo;
-    private Double montoMaximo;
+    private BigDecimal montoMinimo;
+    private BigDecimal montoMaximo;
     private Double tasaInteres;
     private Boolean validacionAutomatica;
 }
