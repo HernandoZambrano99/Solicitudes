@@ -47,44 +47,11 @@ class SolicitudUseCaseTest {
 
     @Test
     void saveRequestSuccess() {
-        Solicitud solicitud = Solicitud.builder()
-                .idSolicitud(1)
-                .documentoIdentidad("12345")
-                .monto(BigDecimal.valueOf(1_000_000))
-                .email("email@example.com")
-                .plazo(12)
-                .idTipoPrestamo(1)
-                .idEstado(1)
-                .build();
-
-        Estados estado = Estados.builder()
-                .idEstado(1)
-                .nombre("Pendiente de revisión")
-                .descripcion("Descripción de Prueba")
-                .build();
-
-        TipoPrestamo tipoPrestamo = TipoPrestamo.builder()
-                .idTipoPrestamo(1)
-                .nombre("Prestamo Personal")
-                .montoMinimo(BigDecimal.valueOf(100000))
-                .montoMaximo(BigDecimal.valueOf(200000000))
-                .tasaInteres(15.0)
-                .build();
-
-        User user = User.builder()
-                .name("Juan")
-                .lastName("Pérez")
-                .build();
-
-        Solicitud savedSolicitud = Solicitud.builder()
-                .idSolicitud(1)
-                .monto(BigDecimal.valueOf(1_000_000))
-                .email("email@example.com")
-                .plazo(12)
-                .idTipoPrestamo(1)
-                .idEstado(1)
-                .documentoIdentidad("12345")
-                .build();
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        User user = SolicitudTestData.buildUsuarioValido();
+        Solicitud savedSolicitud = SolicitudTestData.buildSolicitudValida();
 
         when(validarUsuarioUseCase.validarSiExiste("12345")).thenReturn(Mono.just(user));
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
@@ -106,20 +73,8 @@ class SolicitudUseCaseTest {
 
     @Test
     void saveRequestFailsWhenMontoFueraDeRango() {
-        Solicitud solicitud = Solicitud.builder()
-                .idSolicitud(1)
-                .documentoIdentidad("12345")
-                .monto(BigDecimal.valueOf(10))
-                .plazo(12)
-                .idTipoPrestamo(1)
-                .build();
-
-        TipoPrestamo tipoPrestamo = TipoPrestamo.builder()
-                .idTipoPrestamo(1)
-                .nombre("Prestamo Personal")
-                .montoMinimo(BigDecimal.valueOf(100000))
-                .montoMaximo(BigDecimal.valueOf(200000))
-                .build();
+        Solicitud solicitud = SolicitudTestData.buildSolicitudMontoInvalido();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoConRangoCorto();
 
         when(validarUsuarioUseCase.validarSiExiste("12345")).thenReturn(Mono.just(User.builder().build()));
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
@@ -141,14 +96,7 @@ class SolicitudUseCaseTest {
 
     @Test
     void saveRequestFailsWhenTipoPrestamoNotFound() {
-        Solicitud solicitud = Solicitud.builder()
-                .idSolicitud(1)
-                .documentoIdentidad("12345")
-                .monto(BigDecimal.valueOf(500000))
-                .plazo(12)
-                .idTipoPrestamo(99)
-                .idEstado(1)
-                .build();
+        Solicitud solicitud = SolicitudTestData.buildSolicitudTipoPrestamoInvalido();
 
         when(validarUsuarioUseCase.validarSiExiste("12345")).thenReturn(Mono.just(User.builder().build()));
         when(tipoPrestamoRepository.findById(eq(99))).thenReturn(Mono.empty());
@@ -161,13 +109,7 @@ class SolicitudUseCaseTest {
 
     @Test
     void saveRequestFailsWhenUsuarioNotFound() {
-        Solicitud solicitud = Solicitud.builder()
-                .idSolicitud(1)
-                .documentoIdentidad("0000")
-                .monto(BigDecimal.valueOf(500000))
-                .plazo(12)
-                .idTipoPrestamo(1)
-                .build();
+        Solicitud solicitud = SolicitudTestData.buildSolicitudUsuarioInvalido();
 
         when(validarUsuarioUseCase.validarSiExiste("0000")).thenReturn(Mono.empty());
 
