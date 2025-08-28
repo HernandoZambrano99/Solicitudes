@@ -4,6 +4,7 @@ import co.com.bancolombia.api.constants.ErrorConstants;
 import co.com.bancolombia.usecase.exceptions.MontoFueraDeRangoException;
 import co.com.bancolombia.usecase.exceptions.SolicitudNotFoundException;
 import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
+import co.com.bancolombia.usecase.exceptions.UsuarioNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.web.reactive.error.AbstractErrorWebExceptionHandler;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
@@ -107,6 +108,18 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
                     ErrorConstants.PATH, request.path()
             );
             return ServerResponse.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body);
+        }
+
+        if (error instanceof UsuarioNotFoundException unfe) {
+            var body = Map.of(
+                    ErrorConstants.STATUS, HttpStatus.NOT_FOUND.value(),
+                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
+                    ErrorConstants.MESSAGE, unfe.getMessage(),
+                    ErrorConstants.PATH, request.path()
+            );
+            return ServerResponse.status(HttpStatus.NOT_FOUND)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body);
         }
