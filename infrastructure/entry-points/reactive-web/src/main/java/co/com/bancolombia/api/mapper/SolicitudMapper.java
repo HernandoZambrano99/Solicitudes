@@ -4,21 +4,31 @@ import co.com.bancolombia.api.dto.SolicitudResponseDto;
 import co.com.bancolombia.model.estados.Estados;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Mappings;
+import co.com.bancolombia.model.usuario.User;
+import org.mapstruct.*;
+
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Mapper(componentModel = "spring")
 public interface SolicitudMapper {
 
-    @Mappings({
-            @Mapping(target = "idSolicitud", source = "solicitud.idSolicitud"),
-            @Mapping(target = "documentoIdentidad", source = "solicitud.documentoIdentidad"),
-            @Mapping(target = "estado", source = "estado.nombre"),
-            @Mapping(target = "tipoPrestamo", source = "tipo.nombre"),
-            @Mapping(target = "monto", source = "solicitud.monto"),
-            @Mapping(target = "plazo", source = "solicitud.plazo"),
+            @Mapping(target = "idSolicitud", source = "solicitud.idSolicitud")
+            @Mapping(target = "documentoIdentidad", source = "solicitud.documentoIdentidad")
+            @Mapping(target = "estado", source = "estado.nombre")
+            @Mapping(target = "tipoPrestamo", source = "tipo.nombre")
+            @Mapping(target = "monto", source = "solicitud.monto")
+            @Mapping(target = "plazo", source = "solicitud.plazo")
             @Mapping(target = "email", source = "solicitud.email")
-    })
-    SolicitudResponseDto toDto(Solicitud solicitud, Estados estado, TipoPrestamo tipo);
+            @Mapping(target = "usuario", expression = "java(concatNombre(user))")
+    SolicitudResponseDto toDto(Solicitud solicitud, Estados estado, TipoPrestamo tipo, User user);
+
+    default String concatNombre(User user) {
+        if (user == null) return null;
+        String n = user.getName() == null ? "" : user.getName().trim();
+        String ln = user.getLastName() == null ? "" : user.getLastName().trim();
+        String full = (n + " " + ln).trim();
+        return full.isEmpty() ? null : full;
+    }
 }

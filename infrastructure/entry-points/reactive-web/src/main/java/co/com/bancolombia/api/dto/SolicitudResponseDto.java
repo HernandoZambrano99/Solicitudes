@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SolicitudResponseDto {
     private Integer idSolicitud;
+    private String usuario;
     private String documentoIdentidad;
     private String estado;
     private String tipoPrestamo;

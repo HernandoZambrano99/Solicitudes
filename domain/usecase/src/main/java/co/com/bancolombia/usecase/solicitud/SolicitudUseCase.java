@@ -6,10 +6,13 @@ import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
+import co.com.bancolombia.model.usuario.User;
+import co.com.bancolombia.usecase.ValidarUsuarioUseCase;
 import co.com.bancolombia.usecase.constants.LogsConstants;
 import co.com.bancolombia.usecase.exceptions.MontoFueraDeRangoException;
 import co.com.bancolombia.usecase.exceptions.SolicitudNotFoundException;
 import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
+import co.com.bancolombia.usecase.exceptions.UsuarioNotFoundException;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -24,28 +27,50 @@ public class SolicitudUseCase {
     private final SolicitudRepository solicitudRepository;
     private final TipoPrestamoRepository tipoPrestamoRepository;
     private final EstadosRepository estadosRepository;
+    private final ValidarUsuarioUseCase validarUsuarioUseCase;
 
     public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud) {
-        return tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
-                .switchIfEmpty(Mono.error(new TipoPrestamoNotFoundException(solicitud.getIdTipoPrestamo())))
-                .flatMap(tipo -> validarMonto(solicitud, tipo))
-                .flatMap(solicitudValida -> {
-                    solicitudValida.setIdEstado(1);
-                    return solicitudRepository.save(solicitudValida);
+        return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
+                .switchIfEmpty(Mono.error(new UsuarioNotFoundException(solicitud.getDocumentoIdentidad())))
+                .zipWith(Mono.just(solicitud))
+                .flatMap(tuple -> {
+                    User usuario = tuple.getT1();
+                    Solicitud sol = tuple.getT2();
+
+                    return tipoPrestamoRepository.findById(sol.getIdTipoPrestamo())
+                            .switchIfEmpty(Mono.error(new TipoPrestamoNotFoundException(sol.getIdTipoPrestamo())))
+                            .flatMap(tipo -> validarMonto(sol, tipo)
+                                    .map(solicitudValida -> new Object[]{ solicitudValida, usuario, tipo })
+                            );
                 })
-                .flatMap(saved ->
-                        Mono.zip(
-                                estadosRepository.findById(saved.getIdEstado()),
-                                tipoPrestamoRepository.findById(saved.getIdTipoPrestamo())
-                        ).map(tuple -> {
-                            logger.info(LogsConstants.REQUEST_SAVED_SUCCESS + saved.getIdSolicitud());
-                            return SolicitudDetalle.builder()
-                                    .solicitud(saved)
-                                    .estado(tuple.getT1())
-                                    .tipoPrestamo(tuple.getT2())
-                                    .build();
-                        })
-                );
+                .flatMap(array -> {
+                    Solicitud solicitudValida = (Solicitud) array[0];
+                    User usuario = (User) array[1];
+                    TipoPrestamo tipo = (TipoPrestamo) array[2];
+
+                    solicitudValida.setIdEstado(1);
+
+                    return solicitudRepository.save(solicitudValida)
+                            .map(saved -> new Object[]{ saved, usuario, tipo });
+                })
+                .flatMap(array -> {
+                    Solicitud saved = (Solicitud) array[0];
+                    User usuario = (User) array[1];
+                    TipoPrestamo tipo = (TipoPrestamo) array[2];
+
+                    return Mono.zip(
+                            estadosRepository.findById(saved.getIdEstado()),
+                            Mono.just(tipo)
+                    ).map(tuple -> {
+                        logger.info(LogsConstants.REQUEST_SAVED_SUCCESS + saved.getIdSolicitud());
+                        return SolicitudDetalle.builder()
+                                .solicitud(saved)
+                                .estado(tuple.getT1())
+                                .tipoPrestamo(tuple.getT2())
+                                .user(usuario)
+                                .build();
+                    });
+                });
     }
 
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {

@@ -40,7 +40,8 @@ public class Handler {
                 .map(solicitudDetalle -> solicitudMapper.toDto(
                         solicitudDetalle.getSolicitud(),
                         solicitudDetalle.getEstado(),
-                        solicitudDetalle.getTipoPrestamo()
+                        solicitudDetalle.getTipoPrestamo(),
+                        solicitudDetalle.getUser()
                 ))
                 .flatMap(dto -> ServerResponse.ok().bodyValue(dto));
     }
