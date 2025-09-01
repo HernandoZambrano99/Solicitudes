@@ -49,12 +49,16 @@ class SolicitudUseCaseTest {
         User user = SolicitudTestData.buildUsuarioValido();
         Solicitud savedSolicitud = SolicitudTestData.buildSolicitudValida();
 
-        when(validarUsuarioUseCase.validarSiExiste("12345", )).thenReturn(Mono.just(user));
+        String identityDocument = "12345";
+        String jwt = "fake-jwt";
+
+        when(validarUsuarioUseCase.validarSiExiste(identityDocument, jwt)).thenReturn(Mono.just(user));
+        when(validarUsuarioUseCase.validarSiCoincideConJwt(identityDocument, jwt)).thenReturn(Mono.just(true));
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
         when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(savedSolicitud));
         when(estadosRepository.findById(eq(1))).thenReturn(Mono.just(estado));
 
-        Mono<SolicitudDetalle> result = solicitudUseCase.ejecutar(solicitud, );
+        Mono<SolicitudDetalle> result = solicitudUseCase.ejecutar(solicitud, jwt);
 
         StepVerifier.create(result)
                 .assertNext(detalle -> {
@@ -72,13 +76,18 @@ class SolicitudUseCaseTest {
         Solicitud solicitud = SolicitudTestData.buildSolicitudMontoInvalido();
         TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoConRangoCorto();
 
-        when(validarUsuarioUseCase.validarSiExiste("12345", )).thenReturn(Mono.just(User.builder().build()));
+        String identityDocument = "12345";
+        String jwt = "fake-jwt";
+
+        when(validarUsuarioUseCase.validarSiExiste(identityDocument, jwt)).thenReturn(Mono.just(User.builder().build()));
+        when(validarUsuarioUseCase.validarSiCoincideConJwt(identityDocument, jwt)).thenReturn(Mono.just(true));
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
 
-        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, ))
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, jwt))
                 .expectError(MontoFueraDeRangoException.class)
                 .verify();
     }
+
 
     @Test
     void buscarPorIdFailsWhenSolicitudNotFound() {
@@ -93,11 +102,14 @@ class SolicitudUseCaseTest {
     @Test
     void saveRequestFailsWhenTipoPrestamoNotFound() {
         Solicitud solicitud = SolicitudTestData.buildSolicitudTipoPrestamoInvalido();
+        String jwt = "fake-jwt";
+        String identityDocument = "12345";
 
-        when(validarUsuarioUseCase.validarSiExiste("12345", )).thenReturn(Mono.just(User.builder().build()));
+        when(validarUsuarioUseCase.validarSiExiste("12345", jwt)).thenReturn(Mono.just(User.builder().build()));
+        when(validarUsuarioUseCase.validarSiCoincideConJwt(identityDocument, jwt)).thenReturn(Mono.just(true));
         when(tipoPrestamoRepository.findById(eq(99))).thenReturn(Mono.empty());
 
-        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, ))
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, jwt))
                 .expectErrorMatches(throwable -> throwable instanceof TipoPrestamoNotFoundException &&
                         ((TipoPrestamoNotFoundException) throwable).getMessage().contains("99"))
                 .verify();
@@ -107,13 +119,15 @@ class SolicitudUseCaseTest {
     void saveRequestFailsWhenUsuarioNotFound() {
         Solicitud solicitud = SolicitudTestData.buildSolicitudUsuarioInvalido();
 
-        when(validarUsuarioUseCase.validarSiExiste("0000", )).thenReturn(Mono.empty());
+        String identityDocument = "0000";
+        String jwt = "fake-jwt";
 
-        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, ))
+        when(validarUsuarioUseCase.validarSiExiste(identityDocument, jwt)).thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, jwt))
                 .expectErrorMatches(throwable -> throwable instanceof UsuarioNotFoundException &&
                         throwable.getMessage().contains("0000"))
                 .verify();
     }
-
 
 }

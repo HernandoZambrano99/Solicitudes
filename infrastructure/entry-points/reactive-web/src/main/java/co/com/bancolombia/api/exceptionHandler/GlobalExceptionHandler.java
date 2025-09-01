@@ -1,5 +1,6 @@
 package co.com.bancolombia.api.exceptionHandler;
 
+import co.com.bancolombia.api.constants.ErrorCode;
 import co.com.bancolombia.api.constants.ErrorConstants;
 import co.com.bancolombia.consumer.exception.SolicitudSoloClienteException;
 import co.com.bancolombia.usecase.exceptions.*;
@@ -40,101 +41,39 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
         Throwable error = getError(request);
 
         if (error instanceof RequestValidationException vex) {
-            var body = new LinkedHashMap<String, Object>();
-            body.put(ErrorConstants.ERROR, ErrorConstants.VALIDATION_FAILED);
-            body.put(ErrorConstants.PATH, request.path());
-            body.put(ErrorConstants.DETAILS, vex.getDetails());
-            return ServerResponse.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.BAD_REQUEST, ErrorConstants.VALIDATION_FAILED, request.path(), vex.getDetails());
         }
 
         if (error instanceof IllegalArgumentException iae) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.CONFLICT,
-                    ErrorConstants.MESSAGE, iae.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.CONFLICT)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.CONFLICT, iae.getMessage(), request.path());
         }
 
         if (error instanceof org.springframework.web.server.ServerWebInputException sie) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.BAD_REQUEST,
-                    ErrorConstants.MESSAGE, sie.getReason(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.BAD_REQUEST, sie.getReason(), request.path());
         }
 
         if (error instanceof SolicitudNotFoundException snf) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
-                    ErrorConstants.MESSAGE, snf.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.NOT_FOUND)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.NOT_FOUND, snf.getMessage(), request.path());
         }
 
         if (error instanceof TipoPrestamoNotFoundException tpnf) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
-                    ErrorConstants.MESSAGE, tpnf.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.NOT_FOUND)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.NOT_FOUND, tpnf.getMessage(), request.path());
         }
 
         if (error instanceof MontoFueraDeRangoException mfe) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.VALIDATION_FAILED,
-                    ErrorConstants.MESSAGE, mfe.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.BAD_REQUEST, mfe.getMessage(), request.path());
         }
 
         if (error instanceof UsuarioNotFoundException unfe) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
-                    ErrorConstants.MESSAGE, unfe.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.NOT_FOUND)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.NOT_FOUND, unfe.getMessage(), request.path());
         }
 
         if (error instanceof UsuarioNoCoincideException unce) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
-                    ErrorConstants.MESSAGE, unce.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.BAD_REQUEST, unce.getMessage(), request.path());
         }
 
         if (error instanceof SolicitudSoloClienteException ssce) {
-            var body = Map.of(
-                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
-                    ErrorConstants.MESSAGE, ssce.getMessage(),
-                    ErrorConstants.PATH, request.path()
-            );
-            return ServerResponse.status(HttpStatus.FORBIDDEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(body);
+            return buildResponse(HttpStatus.FORBIDDEN, ssce.getMessage(), request.path());
         }
 
         var errorProps = getErrorAttributes(request, ErrorAttributeOptions.defaults());
@@ -142,5 +81,36 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
         return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(errorProps);
+    }
+
+    private Mono<ServerResponse> buildResponse(HttpStatus status, String message, String path) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put(ErrorConstants.ERROR, mapToErrorCode(status).getCode());
+        body.put(ErrorConstants.MESSAGE, message);
+        body.put(ErrorConstants.PATH, path);
+        return ServerResponse.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body);
+    }
+
+    private Mono<ServerResponse> buildResponse(HttpStatus status, String errorCode, String path, Object details) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put(ErrorConstants.ERROR, errorCode);
+        body.put(ErrorConstants.PATH, path);
+        body.put(ErrorConstants.DETAILS, details);
+        return ServerResponse.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body);
+    }
+
+    private ErrorCode mapToErrorCode(HttpStatus status) {
+        return switch (status) {
+            case BAD_REQUEST -> ErrorCode.BAD_REQUEST;
+            case CONFLICT -> ErrorCode.CONFLICT;
+            case NOT_FOUND -> ErrorCode.NOT_FOUND;
+            case FORBIDDEN -> ErrorCode.FORBIDDEN;
+            case INTERNAL_SERVER_ERROR -> ErrorCode.INTERNAL_ERROR;
+            default -> ErrorCode.INTERNAL_ERROR;
+        };
     }
 }
