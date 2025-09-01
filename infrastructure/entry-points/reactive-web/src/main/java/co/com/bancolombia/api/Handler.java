@@ -22,6 +22,9 @@ public class Handler {
     private final Validator validator;
 
     public Mono<ServerResponse> crearSolicitud(ServerRequest serverRequest) {
+        String authHeader = serverRequest.headers().firstHeader("Authorization");
+        String jwt = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+
         return serverRequest.bodyToMono(SolicitudRequestDto.class)
                 .flatMap(dto -> {
                     var violations = validator.validate(dto);
@@ -36,7 +39,7 @@ public class Handler {
                     return Mono.just(dto);
                 })
                 .map(solicitudRequestMapper::toModel)
-                .flatMap(solicitudUseCase::ejecutar)
+                .flatMap(solicitud -> solicitudUseCase.ejecutar(solicitud, jwt ))
                 .map(solicitudDetalle -> solicitudMapper.toDto(
                         solicitudDetalle.getSolicitud(),
                         solicitudDetalle.getEstado(),

@@ -8,11 +8,8 @@ import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
 import co.com.bancolombia.usecase.ValidarUsuarioUseCase;
-import co.com.bancolombia.usecase.constants.LogsConstants;
-import co.com.bancolombia.usecase.exceptions.MontoFueraDeRangoException;
-import co.com.bancolombia.usecase.exceptions.SolicitudNotFoundException;
-import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
-import co.com.bancolombia.usecase.exceptions.UsuarioNotFoundException;
+import co.com.bancolombia.usecase.constants.Constants;
+import co.com.bancolombia.usecase.exceptions.*;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
@@ -29,10 +26,19 @@ public class SolicitudUseCase {
     private final EstadosRepository estadosRepository;
     private final ValidarUsuarioUseCase validarUsuarioUseCase;
 
-    public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud) {
-        return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
+    public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud, String jwt) {
+        return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt)
                 .switchIfEmpty(Mono.error(new UsuarioNotFoundException(solicitud.getDocumentoIdentidad())))
-                .zipWith(Mono.just(solicitud))
+                .flatMap(usuario ->
+                        validarUsuarioUseCase.validarSiCoincideConJwt(solicitud.getDocumentoIdentidad(), jwt)
+                                .flatMap(match -> {
+                                    if (!match) {
+                                        return Mono.error(new UsuarioNoCoincideException(solicitud.getDocumentoIdentidad()));
+                                    }
+                                    return Mono.just(usuario);
+                                })
+                                .zipWith(Mono.just(solicitud))
+                )
                 .flatMap(tuple -> {
                     User usuario = tuple.getT1();
                     Solicitud sol = tuple.getT2();
@@ -62,7 +68,7 @@ public class SolicitudUseCase {
                             estadosRepository.findById(saved.getIdEstado()),
                             Mono.just(tipo)
                     ).map(tuple -> {
-                        logger.info(LogsConstants.REQUEST_SAVED_SUCCESS + saved.getIdSolicitud());
+                        logger.info(Constants.REQUEST_SAVED_SUCCESS + saved.getIdSolicitud());
                         return SolicitudDetalle.builder()
                                 .solicitud(saved)
                                 .estado(tuple.getT1())
@@ -79,7 +85,7 @@ public class SolicitudUseCase {
         BigDecimal maximo = tipo.getMontoMaximo();
 
         if (monto.compareTo(minimo) < 0 || monto.compareTo(maximo) > 0) {
-            logger.warning(LogsConstants.AMOUNT_OUT_RANGE + monto);
+            logger.warning(Constants.AMOUNT_OUT_RANGE + monto);
             return Mono.error(new MontoFueraDeRangoException(monto, minimo, maximo));
         }
 

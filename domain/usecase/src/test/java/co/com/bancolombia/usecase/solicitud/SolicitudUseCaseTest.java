@@ -15,13 +15,9 @@ import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
 import co.com.bancolombia.usecase.exceptions.UsuarioNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,12 +49,12 @@ class SolicitudUseCaseTest {
         User user = SolicitudTestData.buildUsuarioValido();
         Solicitud savedSolicitud = SolicitudTestData.buildSolicitudValida();
 
-        when(validarUsuarioUseCase.validarSiExiste("12345")).thenReturn(Mono.just(user));
+        when(validarUsuarioUseCase.validarSiExiste("12345", )).thenReturn(Mono.just(user));
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
         when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(savedSolicitud));
         when(estadosRepository.findById(eq(1))).thenReturn(Mono.just(estado));
 
-        Mono<SolicitudDetalle> result = solicitudUseCase.ejecutar(solicitud);
+        Mono<SolicitudDetalle> result = solicitudUseCase.ejecutar(solicitud, );
 
         StepVerifier.create(result)
                 .assertNext(detalle -> {
@@ -76,10 +72,10 @@ class SolicitudUseCaseTest {
         Solicitud solicitud = SolicitudTestData.buildSolicitudMontoInvalido();
         TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoConRangoCorto();
 
-        when(validarUsuarioUseCase.validarSiExiste("12345")).thenReturn(Mono.just(User.builder().build()));
+        when(validarUsuarioUseCase.validarSiExiste("12345", )).thenReturn(Mono.just(User.builder().build()));
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
 
-        StepVerifier.create(solicitudUseCase.ejecutar(solicitud))
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, ))
                 .expectError(MontoFueraDeRangoException.class)
                 .verify();
     }
@@ -98,10 +94,10 @@ class SolicitudUseCaseTest {
     void saveRequestFailsWhenTipoPrestamoNotFound() {
         Solicitud solicitud = SolicitudTestData.buildSolicitudTipoPrestamoInvalido();
 
-        when(validarUsuarioUseCase.validarSiExiste("12345")).thenReturn(Mono.just(User.builder().build()));
+        when(validarUsuarioUseCase.validarSiExiste("12345", )).thenReturn(Mono.just(User.builder().build()));
         when(tipoPrestamoRepository.findById(eq(99))).thenReturn(Mono.empty());
 
-        StepVerifier.create(solicitudUseCase.ejecutar(solicitud))
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, ))
                 .expectErrorMatches(throwable -> throwable instanceof TipoPrestamoNotFoundException &&
                         ((TipoPrestamoNotFoundException) throwable).getMessage().contains("99"))
                 .verify();
@@ -111,9 +107,9 @@ class SolicitudUseCaseTest {
     void saveRequestFailsWhenUsuarioNotFound() {
         Solicitud solicitud = SolicitudTestData.buildSolicitudUsuarioInvalido();
 
-        when(validarUsuarioUseCase.validarSiExiste("0000")).thenReturn(Mono.empty());
+        when(validarUsuarioUseCase.validarSiExiste("0000", )).thenReturn(Mono.empty());
 
-        StepVerifier.create(solicitudUseCase.ejecutar(solicitud))
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, ))
                 .expectErrorMatches(throwable -> throwable instanceof UsuarioNotFoundException &&
                         throwable.getMessage().contains("0000"))
                 .verify();

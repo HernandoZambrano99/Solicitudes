@@ -1,10 +1,8 @@
 package co.com.bancolombia.api.exceptionHandler;
 
 import co.com.bancolombia.api.constants.ErrorConstants;
-import co.com.bancolombia.usecase.exceptions.MontoFueraDeRangoException;
-import co.com.bancolombia.usecase.exceptions.SolicitudNotFoundException;
-import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
-import co.com.bancolombia.usecase.exceptions.UsuarioNotFoundException;
+import co.com.bancolombia.consumer.exception.SolicitudSoloClienteException;
+import co.com.bancolombia.usecase.exceptions.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.web.reactive.error.AbstractErrorWebExceptionHandler;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
@@ -43,7 +41,6 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof RequestValidationException vex) {
             var body = new LinkedHashMap<String, Object>();
-            body.put(ErrorConstants.STATUS, HttpStatus.BAD_REQUEST.value());
             body.put(ErrorConstants.ERROR, ErrorConstants.VALIDATION_FAILED);
             body.put(ErrorConstants.PATH, request.path());
             body.put(ErrorConstants.DETAILS, vex.getDetails());
@@ -54,7 +51,6 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof IllegalArgumentException iae) {
             var body = Map.of(
-                    ErrorConstants.STATUS, HttpStatus.CONFLICT.value(),
                     ErrorConstants.ERROR, ErrorConstants.CONFLICT,
                     ErrorConstants.MESSAGE, iae.getMessage(),
                     ErrorConstants.PATH, request.path()
@@ -66,7 +62,6 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof org.springframework.web.server.ServerWebInputException sie) {
             var body = Map.of(
-                    ErrorConstants.STATUS, HttpStatus.BAD_REQUEST.value(),
                     ErrorConstants.ERROR, ErrorConstants.BAD_REQUEST,
                     ErrorConstants.MESSAGE, sie.getReason(),
                     ErrorConstants.PATH, request.path()
@@ -78,7 +73,6 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof SolicitudNotFoundException snf) {
             var body = Map.of(
-                    ErrorConstants.STATUS, HttpStatus.NOT_FOUND.value(),
                     ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
                     ErrorConstants.MESSAGE, snf.getMessage(),
                     ErrorConstants.PATH, request.path()
@@ -90,7 +84,6 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof TipoPrestamoNotFoundException tpnf) {
             var body = Map.of(
-                    ErrorConstants.STATUS, HttpStatus.NOT_FOUND.value(),
                     ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
                     ErrorConstants.MESSAGE, tpnf.getMessage(),
                     ErrorConstants.PATH, request.path()
@@ -102,7 +95,6 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof MontoFueraDeRangoException mfe) {
             var body = Map.of(
-                    ErrorConstants.STATUS, HttpStatus.BAD_REQUEST.value(),
                     ErrorConstants.ERROR, ErrorConstants.VALIDATION_FAILED,
                     ErrorConstants.MESSAGE, mfe.getMessage(),
                     ErrorConstants.PATH, request.path()
@@ -114,12 +106,33 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 
         if (error instanceof UsuarioNotFoundException unfe) {
             var body = Map.of(
-                    ErrorConstants.STATUS, HttpStatus.NOT_FOUND.value(),
                     ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
                     ErrorConstants.MESSAGE, unfe.getMessage(),
                     ErrorConstants.PATH, request.path()
             );
             return ServerResponse.status(HttpStatus.NOT_FOUND)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body);
+        }
+
+        if (error instanceof UsuarioNoCoincideException unce) {
+            var body = Map.of(
+                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
+                    ErrorConstants.MESSAGE, unce.getMessage(),
+                    ErrorConstants.PATH, request.path()
+            );
+            return ServerResponse.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body);
+        }
+
+        if (error instanceof SolicitudSoloClienteException ssce) {
+            var body = Map.of(
+                    ErrorConstants.ERROR, ErrorConstants.NOT_FOUND,
+                    ErrorConstants.MESSAGE, ssce.getMessage(),
+                    ErrorConstants.PATH, request.path()
+            );
+            return ServerResponse.status(HttpStatus.FORBIDDEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body);
         }

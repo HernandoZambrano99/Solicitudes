@@ -16,7 +16,7 @@ public class SolicitudTransactionalAdapter {
     private final TransactionalOperator transactionalOperator;
 
     public Mono<SolicitudDetalle> crearSolicitud(Solicitud solicitud){
-        return solicitudUseCase.ejecutar(solicitud)
+        return solicitudUseCase.ejecutar(solicitud, null )
                 .as(transactionalOperator::transactional);
     }
 
