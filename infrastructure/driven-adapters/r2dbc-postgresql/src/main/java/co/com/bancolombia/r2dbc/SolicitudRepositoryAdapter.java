@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Repository
 public class SolicitudRepositoryAdapter
         extends ReactiveAdapterOperations<Solicitud, SolicitudEntity, Integer, SolicitudDataRepository>
@@ -20,17 +22,17 @@ public class SolicitudRepositoryAdapter
     }
 
     @Override
-    public Flux<Solicitud> findByIdEstadoPaged(Integer idEstado, PageRequest pageRequest) {
+    public Flux<Solicitud> findByIdEstadoPaged(List<Integer> idEstados, PageRequest pageRequest) {
         int offset = (pageRequest.getPageNumber() - 1) * pageRequest.getPageSize();
-        return repository.findSolicitudesParaRevision(idEstado)
+        return repository.findSolicitudesParaRevision(idEstados)
                 .skip(offset)
                 .take(pageRequest.getPageSize())
                 .map(entity -> mapper.map(entity, Solicitud.class));
     }
 
     @Override
-    public Mono<Long> countByIdEstado(Integer idEstado) {
-        return repository.findSolicitudesParaRevision(idEstado)
+    public Mono<Long> countByIdEstado(List<Integer> idEstados) {
+        return repository.findSolicitudesParaRevision(idEstados)
                 .count();
     }
 }

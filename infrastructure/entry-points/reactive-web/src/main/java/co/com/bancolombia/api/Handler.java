@@ -18,6 +18,9 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class Handler {
@@ -74,9 +77,21 @@ public class Handler {
                         .map(Integer::parseInt)
                         .orElse(1))
                 .build();
-        Integer idEstado = Integer.valueOf(request.queryParam("status").orElse("1"));
 
-        return solicitudUseCase.getSolicitudesByEstado(idEstado, pageRequest)
+        List<String> rawStatuses = request.queryParams().get("status");
+
+        List<Integer> estados;
+        if (rawStatuses == null || rawStatuses.isEmpty()) {
+            estados = List.of(1,3,4);
+        } else {
+            estados = rawStatuses.stream()
+                    .flatMap(s -> Arrays.stream(s.split(",")))
+                    .filter(str -> !str.isBlank())
+                    .map(Integer::parseInt)
+                    .toList();
+        }
+
+        return solicitudUseCase.getSolicitudesByEstado(estados, pageRequest)
                 .flatMap(pagedResponse -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(pagedResponse))

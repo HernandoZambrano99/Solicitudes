@@ -11,6 +11,8 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class SolicitudTransactionalAdapter {
@@ -28,8 +30,8 @@ public class SolicitudTransactionalAdapter {
                 .as(transactionalOperator::transactional);
     }
 
-    public Mono<PagedResponse<SolicitudDetalle>> buscarPorFiltro(Integer idEstado, PageRequest pageRequest) {
-        return solicitudUseCase.getSolicitudesByEstado(idEstado, pageRequest)
+    public Mono<PagedResponse<SolicitudDetalle>> buscarPorFiltro(List<Integer> idEstados, PageRequest pageRequest) {
+        return solicitudUseCase.getSolicitudesByEstado(idEstados, pageRequest)
                 .as(transactionalOperator::transactional);
     }
 }

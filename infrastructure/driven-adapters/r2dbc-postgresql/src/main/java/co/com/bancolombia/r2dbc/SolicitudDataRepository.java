@@ -7,8 +7,14 @@ import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
+
 public interface SolicitudDataRepository extends ReactiveCrudRepository<SolicitudEntity, Integer>, ReactiveQueryByExampleExecutor<SolicitudEntity> {
 
-    @Query("SELECT * FROM solicitud s WHERE s.id_estado = :idEstado")
-    Flux<SolicitudEntity> findSolicitudesParaRevision(@Param("idEstado") Integer idEstado);
+//    @Query("SELECT * FROM solicitud s WHERE s.id_estado = :idEstado")
+//    Flux<SolicitudEntity> findSolicitudesParaRevision(@Param("idEstado") Integer idEstado);
+
+    @Query("SELECT * FROM solicitud s WHERE s.id_estado IN (:estados)")
+    Flux<SolicitudEntity> findSolicitudesParaRevision(@Param("estados") List<Integer> estados);
+
 }

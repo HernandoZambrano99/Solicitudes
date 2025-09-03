@@ -10,6 +10,7 @@ import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
+import co.com.bancolombia.model.usuario.gateways.UserRepository;
 import co.com.bancolombia.usecase.ValidarUsuarioUseCase;
 import co.com.bancolombia.usecase.constants.Constants;
 import co.com.bancolombia.usecase.exceptions.*;
@@ -18,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.List;
 import java.util.logging.Logger;
 
 @RequiredArgsConstructor
@@ -84,9 +86,9 @@ public class SolicitudUseCase {
     }
 
     public Mono<PagedResponse<SolicitudDetalle>> getSolicitudesByEstado(
-            Integer idEstado, PageRequest pageRequest) {
+            List<Integer> idEstados, PageRequest pageRequest) {
 
-        return solicitudRepository.countByIdEstado(idEstado)
+        return solicitudRepository.countByIdEstado(idEstados)
                 .flatMap(totalRecords -> {
                     if (totalRecords == 0) {
                         return Mono.just(PagedResponse.<SolicitudDetalle>builder()
@@ -100,7 +102,7 @@ public class SolicitudUseCase {
 
                     int totalPages = (int) Math.ceil((double) totalRecords / pageRequest.getPageSize());
 
-                    return solicitudRepository.findByIdEstadoPaged(idEstado, pageRequest)
+                    return solicitudRepository.findByIdEstadoPaged(idEstados, pageRequest)
                             .flatMap(solicitud ->
                                     Mono.zip(
                                             estadosRepository.findById(solicitud.getIdEstado()),
