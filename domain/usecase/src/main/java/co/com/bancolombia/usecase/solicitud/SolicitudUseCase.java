@@ -2,6 +2,9 @@ package co.com.bancolombia.usecase.solicitud;
 
 import co.com.bancolombia.model.SolicitudDetalle;
 import co.com.bancolombia.model.estados.gateways.EstadosRepository;
+import co.com.bancolombia.model.paginacion.PageRequest;
+import co.com.bancolombia.model.paginacion.PagedResponse;
+import co.com.bancolombia.model.paginacion.SolicitudFilters;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
@@ -14,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.logging.Logger;
 
 @RequiredArgsConstructor
@@ -76,6 +80,45 @@ public class SolicitudUseCase {
                                 .user(usuario)
                                 .build();
                     });
+                });
+    }
+
+    public Mono<PagedResponse<SolicitudDetalle>> getSolicitudesByEstado(
+            Integer idEstado, PageRequest pageRequest) {
+
+        return solicitudRepository.countByIdEstado(idEstado)
+                .flatMap(totalRecords -> {
+                    if (totalRecords == 0) {
+                        return Mono.just(PagedResponse.<SolicitudDetalle>builder()
+                                .pageNumber(pageRequest.getPageNumber())
+                                .pageSize(pageRequest.getPageSize())
+                                .totalRecords(0L)
+                                .totalPages(0)
+                                .data(Collections.emptyList())
+                                .build());
+                    }
+
+                    int totalPages = (int) Math.ceil((double) totalRecords / pageRequest.getPageSize());
+
+                    return solicitudRepository.findByIdEstadoPaged(idEstado, pageRequest)
+                            .flatMap(solicitud ->
+                                    Mono.zip(
+                                            estadosRepository.findById(solicitud.getIdEstado()),
+                                            tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
+                                    ).map(tuple -> SolicitudDetalle.builder()
+                                            .solicitud(solicitud)
+                                            .estado(tuple.getT1())
+                                            .tipoPrestamo(tuple.getT2())
+                                            .build())
+                            )
+                            .collectList()
+                            .map(detalles -> PagedResponse.<SolicitudDetalle>builder()
+                                    .pageNumber(pageRequest.getPageNumber())
+                                    .pageSize(pageRequest.getPageSize())
+                                    .totalRecords(totalRecords)
+                                    .totalPages(totalPages)
+                                    .data(detalles)
+                                    .build());
                 });
     }
 
