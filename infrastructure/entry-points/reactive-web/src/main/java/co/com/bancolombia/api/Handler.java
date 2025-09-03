@@ -1,13 +1,13 @@
 package co.com.bancolombia.api;
 
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
+import co.com.bancolombia.api.dto.SolicitudResponseDto;
 import co.com.bancolombia.api.exceptionHandler.RequestValidationException;
 import co.com.bancolombia.api.mapper.SolicitudMapper;
 import co.com.bancolombia.api.mapper.SolicitudRequestMapper;
 import co.com.bancolombia.model.paginacion.PageRequest;
-import co.com.bancolombia.model.paginacion.SolicitudFilters;
+import co.com.bancolombia.model.paginacion.PagedResponse;
 import co.com.bancolombia.usecase.solicitud.SolicitudUseCase;
-import io.swagger.v3.oas.models.security.SecurityScheme;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,7 +15,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
@@ -68,7 +67,9 @@ public class Handler {
     }
 
     public Mono<ServerResponse> getAllSolicitudesWithFilters(ServerRequest request) {
-        // Extraer parámetros de paginación
+        String authHeader = request.headers().firstHeader("Authorization");
+        String jwt = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+
         PageRequest pageRequest = PageRequest.builder()
                 .pageSize(request.queryParam("pageSize")
                         .map(Integer::parseInt)
@@ -91,12 +92,29 @@ public class Handler {
                     .toList();
         }
 
-        return solicitudUseCase.getSolicitudesByEstado(estados, pageRequest)
-                .flatMap(pagedResponse -> ServerResponse.ok()
+        return solicitudUseCase.getSolicitudesByEstado(estados, pageRequest, jwt)
+                .map(pagedResponse -> {
+                    // Convertir cada SolicitudDetalle a SolicitudResponseDto
+                    List<SolicitudResponseDto> dtoList = pagedResponse.getData().stream()
+                            .map(detalle -> solicitudMapper.toDto(
+                                    detalle.getSolicitud(),
+                                    detalle.getEstado(),
+                                    detalle.getTipoPrestamo(),
+                                    detalle.getUser()))
+                            .toList();
+
+                    return PagedResponse.<SolicitudResponseDto>builder()
+                            .pageNumber(pagedResponse.getPageNumber())
+                            .pageSize(pagedResponse.getPageSize())
+                            .totalRecords(pagedResponse.getTotalRecords())
+                            .totalPages(pagedResponse.getTotalPages())
+                            .data(dtoList)
+                            .build();
+                })
+                .flatMap(pagedDto -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(pagedResponse))
+                        .bodyValue(pagedDto))
                 .onErrorResume(error -> ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .bodyValue("Error al obtener las solicitudes: " + error.getMessage()));
     }
-
 }

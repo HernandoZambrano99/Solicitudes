@@ -4,13 +4,11 @@ import co.com.bancolombia.model.SolicitudDetalle;
 import co.com.bancolombia.model.estados.gateways.EstadosRepository;
 import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.paginacion.PagedResponse;
-import co.com.bancolombia.model.paginacion.SolicitudFilters;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
-import co.com.bancolombia.model.usuario.gateways.UserRepository;
 import co.com.bancolombia.usecase.ValidarUsuarioUseCase;
 import co.com.bancolombia.usecase.constants.Constants;
 import co.com.bancolombia.usecase.exceptions.*;
@@ -86,7 +84,7 @@ public class SolicitudUseCase {
     }
 
     public Mono<PagedResponse<SolicitudDetalle>> getSolicitudesByEstado(
-            List<Integer> idEstados, PageRequest pageRequest) {
+            List<Integer> idEstados, PageRequest pageRequest, String jwt) {
 
         return solicitudRepository.countByIdEstado(idEstados)
                 .flatMap(totalRecords -> {
@@ -106,11 +104,13 @@ public class SolicitudUseCase {
                             .flatMap(solicitud ->
                                     Mono.zip(
                                             estadosRepository.findById(solicitud.getIdEstado()),
-                                            tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
+                                            tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo()),
+                                            validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt)
                                     ).map(tuple -> SolicitudDetalle.builder()
                                             .solicitud(solicitud)
                                             .estado(tuple.getT1())
                                             .tipoPrestamo(tuple.getT2())
+                                            .user(tuple.getT3())
                                             .build())
                             )
                             .collectList()

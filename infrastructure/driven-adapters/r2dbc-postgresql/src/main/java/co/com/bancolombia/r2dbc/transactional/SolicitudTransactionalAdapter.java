@@ -8,7 +8,6 @@ import co.com.bancolombia.usecase.solicitud.SolicitudUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -31,7 +30,7 @@ public class SolicitudTransactionalAdapter {
     }
 
     public Mono<PagedResponse<SolicitudDetalle>> buscarPorFiltro(List<Integer> idEstados, PageRequest pageRequest) {
-        return solicitudUseCase.getSolicitudesByEstado(idEstados, pageRequest)
+        return solicitudUseCase.getSolicitudesByEstado(idEstados, pageRequest, null )
                 .as(transactionalOperator::transactional);
     }
 }

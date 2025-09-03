@@ -15,9 +15,11 @@ public class SolicitudResponseDto {
     private Integer idSolicitud;
     private String usuario;
     private String documentoIdentidad;
-    private String estado;
+    private String email;
     private String tipoPrestamo;
+    private String estado;
     private BigDecimal monto;
     private Integer plazo;
-    private String email;
+    private Double tasaInteres;
+    private Double deudaTotalMensual;
 }

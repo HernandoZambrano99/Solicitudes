@@ -18,7 +18,9 @@ public interface SolicitudMapper {
     @Mapping(target = "monto", source = "solicitud.monto")
     @Mapping(target = "plazo", source = "solicitud.plazo")
     @Mapping(target = "email", source = "solicitud.email")
+    @Mapping(target = "tasaInteres", source = "tipo.tasaInteres")
     @Mapping(target = "usuario", expression = "java(concatNombre(user))")
+    @Mapping(target = "deudaTotalMensual", ignore = true)
     SolicitudResponseDto toDto(Solicitud solicitud, Estados estado, TipoPrestamo tipo, User user);
 
     default String concatNombre(User user) {
