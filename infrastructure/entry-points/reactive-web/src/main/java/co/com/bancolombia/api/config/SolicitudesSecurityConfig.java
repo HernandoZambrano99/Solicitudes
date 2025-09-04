@@ -1,5 +1,8 @@
 package co.com.bancolombia.api.config;
 
+import co.com.bancolombia.api.constants.AppConstants;
+import co.com.bancolombia.api.constants.ErrorConstants;
+import co.com.bancolombia.api.exceptionHandler.InvalidJwtTokenException;
 import co.com.bancolombia.api.security.JwtUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -39,6 +42,7 @@ public class SolicitudesSecurityConfig {
                 .authorizeExchange(exchange -> exchange
                         .pathMatchers("/v3/api-docs/**").permitAll()
                         .pathMatchers("/swagger-ui.html").permitAll()
+                        .pathMatchers("/webjars/swagger-ui/**").permitAll()
                         .pathMatchers("/swagger-ui/**").permitAll()
 
                         .pathMatchers(HttpMethod.GET, "/api/v1/solicitud").hasAuthority("ROLE_ASESOR")
@@ -61,7 +65,9 @@ public class SolicitudesSecurityConfig {
             if (authHeaders.isEmpty()) return Mono.empty();
 
             String authHeader = authHeaders.get(0);
-            if (!authHeader.startsWith("Bearer ")) return Mono.empty();
+            if (!authHeader.startsWith(AppConstants.BEARER)) {
+                return Mono.error(new InvalidJwtTokenException(ErrorConstants.INVALID_TOKEN));
+            }
 
             String token = authHeader.substring(7);
             try {
@@ -76,7 +82,7 @@ public class SolicitudesSecurityConfig {
 
                 return Mono.just(new UsernamePasswordAuthenticationToken(email, null, authorities));
             } catch (Exception e) {
-                return Mono.empty();
+                return Mono.error(new InvalidJwtTokenException(ErrorConstants.EXPIRED_JWT));
             }
         });
 

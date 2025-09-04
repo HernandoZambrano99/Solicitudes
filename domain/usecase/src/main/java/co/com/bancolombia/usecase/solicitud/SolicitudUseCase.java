@@ -50,7 +50,7 @@ public class SolicitudUseCase {
                     return tipoPrestamoRepository.findById(sol.getIdTipoPrestamo())
                             .switchIfEmpty(Mono.error(new TipoPrestamoNotFoundException(sol.getIdTipoPrestamo())))
                             .flatMap(tipo -> validarMonto(sol, tipo)
-                                    .map(solicitudValida -> new Object[]{ solicitudValida, usuario, tipo })
+                                    .map(solicitudValida -> new Object[]{solicitudValida, usuario, tipo})
                             );
                 })
                 .flatMap(array -> {
@@ -61,7 +61,7 @@ public class SolicitudUseCase {
                     solicitudValida.setIdEstado(1);
 
                     return solicitudRepository.save(solicitudValida)
-                            .map(saved -> new Object[]{ saved, usuario, tipo });
+                            .map(saved -> new Object[]{saved, usuario, tipo});
                 })
                 .flatMap(array -> {
                     Solicitud saved = (Solicitud) array[0];
@@ -85,10 +85,16 @@ public class SolicitudUseCase {
 
     public Mono<PagedResponse<SolicitudDetalle>> getSolicitudesByEstado(
             List<Integer> idEstados, PageRequest pageRequest, String jwt) {
-
+        logger.info(() -> String.format(
+                Constants.GET_SOLICITUDES_BY_ESTADO_INIT,
+                idEstados, pageRequest.getPageNumber(), pageRequest.getPageSize()
+        ));
         return solicitudRepository.countByIdEstado(idEstados)
                 .flatMap(totalRecords -> {
                     if (totalRecords == 0) {
+                        logger.info(() -> String.format(
+                                Constants.GET_SOLICITUDES_BY_ESTADO_EMPTY, idEstados
+                        ));
                         return Mono.just(PagedResponse.<SolicitudDetalle>builder()
                                 .pageNumber(pageRequest.getPageNumber())
                                 .pageSize(pageRequest.getPageSize())

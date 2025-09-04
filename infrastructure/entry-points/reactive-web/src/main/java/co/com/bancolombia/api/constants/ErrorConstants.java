@@ -13,4 +13,8 @@ public final class ErrorConstants {
     public static final String CONFLICT = "Conflict";
     public static final String BAD_REQUEST = "Bad Request";
     public static final String NOT_FOUND = "Not Found";
+
+    public static final String INVALID_TOKEN = "Formato de token inválido";
+    public static final String EXPIRED_JWT = "Token JWT inválido o expirado";
+
 }

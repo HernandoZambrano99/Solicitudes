@@ -3,6 +3,7 @@ package co.com.bancolombia.usecase.solicitud;
 import co.com.bancolombia.model.SolicitudDetalle;
 import co.com.bancolombia.model.estados.Estados;
 import co.com.bancolombia.model.estados.gateways.EstadosRepository;
+import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -129,5 +132,66 @@ class SolicitudUseCaseTest {
                         throwable.getMessage().contains("0000"))
                 .verify();
     }
+
+    @Test
+    void getSolicitudesByEstadoReturnsEmptyWhenNoRecords() {
+        PageRequest pageRequest = PageRequest.builder().pageNumber(1).pageSize(10).build();
+        List<Integer> estados = List.of(1, 2);
+
+        when(solicitudRepository.countByIdEstado(estados)).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(solicitudUseCase.getSolicitudesByEstado(estados, pageRequest, "fake-jwt"))
+                .assertNext(paged -> {
+                    assertEquals(0, paged.getTotalPages());
+                    assertEquals(0, paged.getTotalRecords());
+                    assertEquals(0, paged.getData().size());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getSolicitudesByEstadoReturnsRecords() {
+        PageRequest pageRequest = PageRequest.builder().pageNumber(1).pageSize(10).build();
+        List<Integer> estados = List.of(1);
+
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        User user = SolicitudTestData.buildUsuarioValido();
+
+        when(solicitudRepository.countByIdEstado(estados)).thenReturn(Mono.just(1L));
+        when(solicitudRepository.findByIdEstadoPaged(estados, pageRequest)).thenReturn(reactor.core.publisher.Flux.just(solicitud));
+        when(estadosRepository.findById(1)).thenReturn(Mono.just(estado));
+        when(tipoPrestamoRepository.findById(1)).thenReturn(Mono.just(tipoPrestamo));
+        when(validarUsuarioUseCase.validarSiExiste("12345","fake-jwt")).thenReturn(Mono.just(user));
+
+        StepVerifier.create(solicitudUseCase.getSolicitudesByEstado(estados, pageRequest, "fake-jwt"))
+                .assertNext(paged -> {
+                    assertEquals(1, paged.getTotalPages());
+                    assertEquals(1, paged.getTotalRecords());
+                    assertEquals(1, paged.getData().size());
+                    assertEquals("email@example.com", paged.getData().get(0).getSolicitud().getEmail());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void saveRequestFailsWhenUsuarioNoCoincide() {
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        String jwt = "fake-jwt";
+        String identityDocument = solicitud.getDocumentoIdentidad();
+
+        when(validarUsuarioUseCase.validarSiExiste(identityDocument, jwt))
+                .thenReturn(Mono.just(SolicitudTestData.buildUsuarioValido()));
+        when(validarUsuarioUseCase.validarSiCoincideConJwt(identityDocument, jwt))
+                .thenReturn(Mono.just(false));
+
+        StepVerifier.create(solicitudUseCase.ejecutar(solicitud, jwt))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof co.com.bancolombia.usecase.exceptions.UsuarioNoCoincideException &&
+                                throwable.getMessage().contains(identityDocument))
+                .verify();
+    }
+
 
 }

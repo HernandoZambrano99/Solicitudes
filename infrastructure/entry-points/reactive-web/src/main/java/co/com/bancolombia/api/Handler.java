@@ -1,5 +1,6 @@
 package co.com.bancolombia.api;
 
+import co.com.bancolombia.api.constants.AppConstants;
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudResponseDto;
 import co.com.bancolombia.api.exceptionHandler.RequestValidationException;
@@ -30,8 +31,8 @@ public class Handler {
     private final Validator validator;
 
     public Mono<ServerResponse> crearSolicitud(ServerRequest serverRequest) {
-        String authHeader = serverRequest.headers().firstHeader("Authorization");
-        String jwt = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+        String authHeader = serverRequest.headers().firstHeader(AppConstants.AUTHORIZATION_HEADER);
+        String jwt = (authHeader != null && authHeader.startsWith(AppConstants.BEARER)) ? authHeader.substring(7) : null;
 
         return serverRequest.bodyToMono(SolicitudRequestDto.class)
                 .flatMap(dto -> {
@@ -67,19 +68,19 @@ public class Handler {
     }
 
     public Mono<ServerResponse> getAllSolicitudesWithFilters(ServerRequest request) {
-        String authHeader = request.headers().firstHeader("Authorization");
-        String jwt = (authHeader != null && authHeader.startsWith("Bearer ")) ? authHeader.substring(7) : null;
+        String authHeader = request.headers().firstHeader(AppConstants.AUTHORIZATION_HEADER);
+        String jwt = (authHeader != null && authHeader.startsWith(AppConstants.BEARER)) ? authHeader.substring(7) : null;
 
         PageRequest pageRequest = PageRequest.builder()
-                .pageSize(request.queryParam("pageSize")
+                .pageSize(request.queryParam(AppConstants.PAGE_SIZE)
                         .map(Integer::parseInt)
                         .orElse(10))
-                .pageNumber(request.queryParam("pageNumber")
+                .pageNumber(request.queryParam(AppConstants.PAGE_NUMBER)
                         .map(Integer::parseInt)
                         .orElse(1))
                 .build();
 
-        List<String> rawStatuses = request.queryParams().get("status");
+        List<String> rawStatuses = request.queryParams().get(AppConstants.STATUS_FILTER);
 
         List<Integer> estados;
         if (rawStatuses == null || rawStatuses.isEmpty()) {
@@ -94,7 +95,6 @@ public class Handler {
 
         return solicitudUseCase.getSolicitudesByEstado(estados, pageRequest, jwt)
                 .map(pagedResponse -> {
-                    // Convertir cada SolicitudDetalle a SolicitudResponseDto
                     List<SolicitudResponseDto> dtoList = pagedResponse.getData().stream()
                             .map(detalle -> solicitudMapper.toDto(
                                     detalle.getSolicitud(),
@@ -113,8 +113,6 @@ public class Handler {
                 })
                 .flatMap(pagedDto -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(pagedDto))
-                .onErrorResume(error -> ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .bodyValue("Error al obtener las solicitudes: " + error.getMessage()));
+                        .bodyValue(pagedDto));
     }
 }
