@@ -1,7 +1,22 @@
+# ---- Etapa de construcción ----
+FROM gradle:8.7-jdk21-alpine AS build
+WORKDIR /home/gradle/app
+
+COPY build.gradle settings.gradle gradle.* ./
+COPY gradle ./gradle
+COPY . .
+
+RUN ./gradlew :app-service:clean :app-service:bootJar -x test --no-daemon
+
 FROM eclipse-temurin:21-jdk-alpine
-VOLUME /tmp
-COPY *.jar Solicitudes.jar
-ENV JAVA_OPTS=" -Xshareclasses:name=cacheapp,cacheDir=/cache,nonfatal -XX:+UseContainerSupport -XX:MaxRAMPercentage=70 -Djava.security.egd=file:/dev/./urandom"
-# Replace with a non-root user to avoid running the container with excessive privileges
-USER appuser
-ENTRYPOINT [ "sh", "-c", "java $JAVA_OPTS  -jar Solicitudes.jar" ]
+WORKDIR /app
+
+ARG JAR_FILE=/home/gradle/app/applications/app-service/build/libs/*.jar
+
+COPY --from=build ${JAR_FILE} app.jar
+
+EXPOSE 8081
+
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=70 -Djava.security.egd=file:/dev/./urandom"
+
+ENTRYPOINT ["sh","-c","java $JAVA_OPTS -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-docker} -jar /app/app.jar"]
