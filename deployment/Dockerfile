@@ -11,6 +11,16 @@ RUN ./gradlew :app-service:clean :app-service:bootJar -x test --no-daemon
 FROM eclipse-temurin:21-jdk-alpine
 WORKDIR /app
 
+# Crear un usuario y grupo sin privilegios
+RUN addgroup -S spring && adduser -S spring -G spring
+
+# Ajustar permisos al directorio
+RUN chown -R spring:spring /app
+
+# Cambiar al usuario no root
+USER spring:spring
+
+
 ARG JAR_FILE=/home/gradle/app/applications/app-service/build/libs/*.jar
 
 COPY --from=build ${JAR_FILE} app.jar
