@@ -3,6 +3,8 @@ package co.com.bancolombia.sqs.sender;
 import co.com.bancolombia.model.SolicitudDetalle;
 import co.com.bancolombia.model.sqs.gateways.SqsGateway;
 import co.com.bancolombia.sqs.sender.config.SQSSenderProperties;
+import co.com.bancolombia.sqs.sender.dto.SolicitudesSqsDto;
+import co.com.bancolombia.sqs.sender.mapper.SolicitudesSqsDtoMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -18,6 +20,7 @@ public class SQSSender implements SqsGateway {
     private final SQSSenderProperties properties;
     private final software.amazon.awssdk.services.sqs.SqsAsyncClient client;
     private final ObjectMapper objectMapper;
+    private final SolicitudesSqsDtoMapper solicitudesSqsDtoMapper;
 
     /**
      * Método genérico para enviar cualquier string
@@ -39,22 +42,12 @@ public class SQSSender implements SqsGateway {
     @Override
     public Mono<Void> enviarSolicitudActualizada(SolicitudDetalle detalle) {
         return Mono.fromCallable(() -> {
-                    // Mapea lo que quieres mandar a la Lambda
-                    var dto = new MensajeSolicitud(
-                            detalle.getSolicitud().getIdSolicitud(),
-                            detalle.getEstado().getNombre(),
-                            detalle.getUser().getEmail()
-                    );
-                    log.info("Enviando solicitud {} con email {}", detalle.getSolicitud().getIdSolicitud(), detalle.getUser().getEmail());
+                     SolicitudesSqsDto dto = solicitudesSqsDtoMapper.toDto(detalle);
+                    log.info("Enviando solicitud {} con email {}", dto.getSolicitudId(), detalle.getUser().getEmail());
                     return objectMapper.writeValueAsString(dto);
                 })
                 .flatMap(this::send)
                 .then();
     }
 
-    /**
-     * DTO con la estructura esperada por la Lambda
-     */
-    record MensajeSolicitud(Integer solicitudId, String estado, String correoCliente) {
-    }
 }

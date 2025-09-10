@@ -12,6 +12,7 @@ import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
 import co.com.bancolombia.usecase.ValidarUsuarioUseCase;
 import co.com.bancolombia.usecase.constants.Constants;
+import co.com.bancolombia.usecase.enums.EstadoSolicitudEnum;
 import co.com.bancolombia.usecase.exceptions.*;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -133,17 +134,10 @@ public class SolicitudUseCase {
     }
 
     public Mono<SolicitudDetalle> aprobarORechazar(Integer idSolicitud, String nuevoEstado, String jwt) {
-        // 1. Buscar solicitud
         return buscarPorId(idSolicitud)
                 .flatMap(solicitud -> {
-                    // 2. Traducir texto a idEstado real
-                    int idEstadoNuevo = switch (nuevoEstado.toUpperCase()) {
-                        case "APROBADO" -> 2; // idEstado para aprobado en tu tabla
-                        case "RECHAZADO" -> 3; // idEstado para rechazado
-                        default -> throw new IllegalArgumentException("Estado inválido");
-                    };
-                    solicitud.setIdEstado(idEstadoNuevo);
-                    // 3. Guardar
+                    EstadoSolicitudEnum estadoEnum = EstadoSolicitudEnum.fromString(nuevoEstado);
+                    solicitud.setIdEstado(estadoEnum.getIdEstado());
                     return solicitudRepository.save(solicitud);
                 })
                 .flatMap(saved -> Mono.zip(
@@ -157,13 +151,11 @@ public class SolicitudUseCase {
                             .tipoPrestamo(tuple.getT2())
                             .user(tuple.getT3())
                             .build();
-                    // 4. Enviar a SQS
                     return enviarMensajeSQS(detalle).thenReturn(detalle);
                 }));
     }
 
     private Mono<Void> enviarMensajeSQS(SolicitudDetalle detalle) {
-        // Implementar con tu Gateway a SQS
         return sqsGateway.enviarSolicitudActualizada(detalle);
     }
 

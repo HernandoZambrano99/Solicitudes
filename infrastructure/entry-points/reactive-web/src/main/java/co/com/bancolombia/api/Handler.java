@@ -123,7 +123,7 @@ public class Handler {
                 ? authHeader.substring(7)
                 : null;
 
-        Integer idSolicitud = Integer.valueOf(serverRequest.pathVariable("id"));
+        Integer idSolicitud = Integer.valueOf(serverRequest.pathVariable(AppConstants.REQUEST_ID));
 
         return serverRequest.bodyToMono(EstadoSolicitudRequestDto.class)
                 .flatMap(req -> solicitudUseCase.aprobarORechazar(idSolicitud, req.getNuevoEstado(), jwt))
