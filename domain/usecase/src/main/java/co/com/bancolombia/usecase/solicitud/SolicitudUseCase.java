@@ -139,6 +139,9 @@ public class SolicitudUseCase {
                 .flatMap(solicitud -> {
                     EstadoSolicitudEnum estadoEnum = EstadoSolicitudEnum.fromString(nuevoEstado);
                     solicitud.setIdEstado(estadoEnum.getIdEstado());
+                    logger.info(() -> String.format(Constants.APROBAR_RECHAZAR_ESTADO_ACTUALIZADO,
+                            solicitud.getIdSolicitud(),
+                            nuevoEstado));
                     return solicitudRepository.save(solicitud);
                 })
                 .flatMap(saved -> Mono.zip(
@@ -153,7 +156,9 @@ public class SolicitudUseCase {
                             .user(tuple.getT3())
                             .build();
                     return enviarMensajeSQS(detalle).thenReturn(detalle);
-                }));
+                })).doOnError(e -> logger.severe(() -> String.format(Constants.APROBAR_RECHAZAR_ERROR,
+                        idSolicitud,
+                        e.getMessage())));
     }
 
     private Mono<Void> enviarMensajeSQS(SolicitudDetalle detalle) {

@@ -11,4 +11,8 @@ public final class Constants {
             "Buscando solicitudes por estado(s): %s | page: %d, size: %d";
     public static final String GET_SOLICITUDES_BY_ESTADO_EMPTY =
             "No se encontraron solicitudes para los estados: %s";
+    public static final String APROBAR_RECHAZAR_ESTADO_ACTUALIZADO =
+            "Actualizando estado de solicitud %d a %s";
+    public static final String APROBAR_RECHAZAR_ERROR =
+            "Error en aprobarORechazar para solicitud %d: %s";
 }
