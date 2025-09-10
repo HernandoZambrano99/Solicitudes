@@ -17,7 +17,7 @@ public class SQSSender implements SqsGateway {
 
     private final SQSSenderProperties properties;
     private final software.amazon.awssdk.services.sqs.SqsAsyncClient client;
-    private final ObjectMapper objectMapper; // Spring Boot ya lo registra por defecto
+    private final ObjectMapper objectMapper;
 
     /**
      * Método genérico para enviar cualquier string
@@ -43,8 +43,9 @@ public class SQSSender implements SqsGateway {
                     var dto = new MensajeSolicitud(
                             detalle.getSolicitud().getIdSolicitud(),
                             detalle.getEstado().getNombre(),
-                            detalle.getUser().getEmail() // correo del cliente
+                            detalle.getUser().getEmail()
                     );
+                    log.info("Enviando solicitud {} con email {}", detalle.getSolicitud().getIdSolicitud(), detalle.getUser().getEmail());
                     return objectMapper.writeValueAsString(dto);
                 })
                 .flatMap(this::send)

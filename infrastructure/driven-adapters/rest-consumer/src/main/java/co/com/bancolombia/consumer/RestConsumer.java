@@ -30,6 +30,7 @@ public class RestConsumer implements UserRepository {
                         .identityDocument(resp.getIdentityDocument())
                         .phone(resp.getPhone())
                         .birthday(resp.getBirthday())
+                        .email(resp.getEmail())
                         .build()
                 );
     }
