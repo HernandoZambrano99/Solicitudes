@@ -6,6 +6,7 @@ import co.com.bancolombia.model.estados.gateways.EstadosRepository;
 import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
+import co.com.bancolombia.model.sqs.gateways.SqsGateway;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
@@ -34,6 +35,7 @@ class SolicitudUseCaseTest {
     private EstadosRepository estadosRepository;
     private SolicitudUseCase solicitudUseCase;
     private ValidarUsuarioUseCase validarUsuarioUseCase;
+    private SqsGateway sqsGateway;
 
     @BeforeEach
     void setUp() {
@@ -41,7 +43,8 @@ class SolicitudUseCaseTest {
         tipoPrestamoRepository = Mockito.mock(TipoPrestamoRepository.class);
         estadosRepository = Mockito.mock(EstadosRepository.class);
         validarUsuarioUseCase = Mockito.mock(ValidarUsuarioUseCase.class);
-        solicitudUseCase = new SolicitudUseCase(solicitudRepository, tipoPrestamoRepository, estadosRepository, validarUsuarioUseCase);
+        sqsGateway = Mockito.mock(SqsGateway.class);
+        solicitudUseCase = new SolicitudUseCase(solicitudRepository, tipoPrestamoRepository, estadosRepository, validarUsuarioUseCase, sqsGateway);
     }
 
     @Test
@@ -193,5 +196,88 @@ class SolicitudUseCaseTest {
                 .verify();
     }
 
+    @Test
+    void aprobarORechazarSuccess() {
+        Integer idSolicitud = 1;
+        String nuevoEstado = "APROBADO";
+        String jwt = "fake-jwt";
 
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        User user = SolicitudTestData.buildUsuarioValido();
+
+        // mocks
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+        when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(solicitud));
+        when(estadosRepository.findById(any(Integer.class))).thenReturn(Mono.just(estado));
+        when(tipoPrestamoRepository.findById(any(Integer.class))).thenReturn(Mono.just(tipoPrestamo));
+        when(validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt))
+                .thenReturn(Mono.just(user));
+        when(sqsGateway.enviarSolicitudActualizada(any(SolicitudDetalle.class))).thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.aprobarORechazar(idSolicitud, nuevoEstado, jwt))
+                .assertNext(detalle -> {
+                    assertEquals(solicitud, detalle.getSolicitud());
+                    assertEquals(estado, detalle.getEstado());
+                    assertEquals(tipoPrestamo, detalle.getTipoPrestamo());
+                    assertEquals(user, detalle.getUser());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void aprobarORechazarFailsWhenSolicitudNotFound() {
+        Integer idSolicitud = 999;
+        String nuevoEstado = "APROBADO";
+        String jwt = "fake-jwt";
+
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.aprobarORechazar(idSolicitud, nuevoEstado, jwt))
+                .expectErrorMatches(throwable -> throwable instanceof SolicitudNotFoundException &&
+                        throwable.getMessage().contains(idSolicitud.toString()))
+                .verify();
+    }
+
+    @Test
+    void aprobarORechazarFailsWhenEstadoInvalido() {
+        Integer idSolicitud = 1;
+        String nuevoEstado = "INVALIDO";
+        String jwt = "fake-jwt";
+
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+
+        StepVerifier.create(solicitudUseCase.aprobarORechazar(idSolicitud, nuevoEstado, jwt))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void aprobarORechazarFailsWhenSQSError() {
+        Integer idSolicitud = 1;
+        String nuevoEstado = "APROBADO";
+        String jwt = "fake-jwt";
+
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        User user = SolicitudTestData.buildUsuarioValido();
+
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+        when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(solicitud));
+        when(estadosRepository.findById(any(Integer.class))).thenReturn(Mono.just(estado));
+        when(tipoPrestamoRepository.findById(any(Integer.class))).thenReturn(Mono.just(tipoPrestamo));
+        when(validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt))
+                .thenReturn(Mono.just(user));
+        when(sqsGateway.enviarSolicitudActualizada(any(SolicitudDetalle.class)))
+                .thenReturn(Mono.error(new RuntimeException("SQS fallo")));
+
+        StepVerifier.create(solicitudUseCase.aprobarORechazar(idSolicitud, nuevoEstado, jwt))
+                .expectErrorMatches(throwable -> throwable instanceof RuntimeException &&
+                        throwable.getMessage().equals("SQS fallo"))
+                .verify();
+    }
 }
