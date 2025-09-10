@@ -135,6 +135,7 @@ public class SolicitudUseCase {
 
     public Mono<SolicitudDetalle> aprobarORechazar(Integer idSolicitud, String nuevoEstado, String jwt) {
         return buscarPorId(idSolicitud)
+                .switchIfEmpty(Mono.error(new SolicitudNotFoundException(idSolicitud)))
                 .flatMap(solicitud -> {
                     EstadoSolicitudEnum estadoEnum = EstadoSolicitudEnum.fromString(nuevoEstado);
                     solicitud.setIdEstado(estadoEnum.getIdEstado());

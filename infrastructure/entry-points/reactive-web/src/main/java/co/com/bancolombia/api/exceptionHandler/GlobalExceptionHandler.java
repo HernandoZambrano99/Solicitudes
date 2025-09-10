@@ -80,6 +80,10 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
             return buildResponse(HttpStatus.UNAUTHORIZED, ije.getMessage(), request.path());
         }
 
+        if (error instanceof InvalidParameterException ipe) {
+            return buildResponse(HttpStatus.BAD_REQUEST, ipe.getMessage(), request.path());
+        }
+
         var errorProps = getErrorAttributes(request, ErrorAttributeOptions.defaults());
         log.error("Error no controlado: {}", error.getMessage(), error);
         return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -1,9 +1,12 @@
 package co.com.bancolombia.api;
 
 import co.com.bancolombia.api.constants.AppConstants;
+import co.com.bancolombia.api.constants.ErrorConstants;
 import co.com.bancolombia.api.dto.EstadoSolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudResponseDto;
+import co.com.bancolombia.api.exceptionHandler.InvalidJwtTokenException;
+import co.com.bancolombia.api.exceptionHandler.InvalidParameterException;
 import co.com.bancolombia.api.exceptionHandler.RequestValidationException;
 import co.com.bancolombia.api.mapper.SolicitudMapper;
 import co.com.bancolombia.api.mapper.SolicitudRequestMapper;
@@ -123,9 +126,24 @@ public class Handler {
                 ? authHeader.substring(7)
                 : null;
 
-        Integer idSolicitud = Integer.valueOf(serverRequest.pathVariable(AppConstants.REQUEST_ID));
+        if (jwt == null) {
+            return Mono.error(new InvalidJwtTokenException(ErrorConstants.AUTHORIZATION_NOT_FOUND));
+        }
+
+        String idSolicitudStr = serverRequest.pathVariable(AppConstants.REQUEST_ID);
+        if (idSolicitudStr == null || idSolicitudStr.isBlank()) {
+            return Mono.error(new InvalidParameterException(ErrorConstants.ID_IS_MANDATORY));
+        }
+
+        Integer idSolicitud;
+        try {
+            idSolicitud = Integer.valueOf(idSolicitudStr);
+        } catch (NumberFormatException e) {
+            return Mono.error(new InvalidParameterException(ErrorConstants.NO_NUMERIC_ID));
+        }
 
         return serverRequest.bodyToMono(EstadoSolicitudRequestDto.class)
+                .switchIfEmpty(Mono.error(new InvalidParameterException(ErrorConstants.BODY_IS_MANDATORY)))
                 .flatMap(req -> solicitudUseCase.aprobarORechazar(idSolicitud, req.getNuevoEstado(), jwt))
                 .map(detalle -> solicitudMapper.toDto(
                         detalle.getSolicitud(),
@@ -135,10 +153,7 @@ public class Handler {
                 ))
                 .flatMap(dto -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(dto))
-                .onErrorResume(e ->
-                        ServerResponse.status(HttpStatus.BAD_REQUEST)
-                                .bodyValue(e.getMessage()));
+                        .bodyValue(dto));
     }
 
 }
