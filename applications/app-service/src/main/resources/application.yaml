@@ -1,9 +1,8 @@
 server:
-  port: ${SERVER_PORT:8083}
-
+  port: "${SERVER_PORT:8083}"
 spring:
   application:
-    name: ${SPRING_APP_NAME:Solicitudes}
+    name: "${SPRING_APP_NAME:Solicitudes}"
   devtools:
     add-properties: false
   h2:
@@ -11,17 +10,15 @@ spring:
       enabled: true
       path: "/h2"
   profiles:
-    include: ${SPRING_PROFILES_INCLUDE:}
-
+    include: "${SPRING_PROFILES_INCLUDE:}"
 adapters:
   r2dbc:
-    host: ${R2DBC_HOST:localhost}
-    port: ${R2DBC_PORT:5432}
-    database: ${R2DBC_DATABASE:credi_ya}
-    schema: ${R2DBC_SCHEMA:public}
-    username: ${R2DBC_USERNAME:credi_user}
-    password: ${R2DBC_PASSWORD:user}
-
+    host: "${R2DBC_HOST:localhost}"
+    port: "${R2DBC_PORT:5432}"
+    database: "${R2DBC_DATABASE:credi_ya}"
+    schema: "${R2DBC_SCHEMA:public}"
+    username: "${R2DBC_USERNAME:credi_user}"
+    password: "${R2DBC_PASSWORD:user}"
 management:
   endpoints:
     web:
@@ -34,15 +31,16 @@ management:
   health:
     circuitbreakers:
       enabled: true
-
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8082}
-
+  allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8082}"
 adapter:
   restconsumer:
     timeout: 5000
-    url: ${RESTCONSUMER_URL:http://localhost:8082}   # 👈 para apuntar a Autenticación en docker
-
+    url: "${RESTCONSUMER_URL:http://localhost:8082}"
+  sqs:
+    region: "us-east-1"
+    queueUrl: "https://sqs.us-east-1.amazonaws.com/821368348315/SolicitudesQueue"
+#    endpoint:
 resilience4j:
   circuitbreaker:
     instances:
@@ -64,8 +62,7 @@ resilience4j:
         slidingWindowSize: 10
         minimumNumberOfCalls: 10
         waitDurationInOpenState: "10s"
-
 security:
   jwt:
-    secret: ${SPRING_SECURITY_JWT_SECRET:0Dz2RFrDttxXG9ZgQ9s6nJ8lcnFv9HQ1mFtuG3B0TXQ=}
-    expiration-ms: ${SPRING_SECURITY_JWT_EXPIRATION_MS:3600000} # 1 hora
+    secret: "${SPRING_SECURITY_JWT_SECRET:0Dz2RFrDttxXG9ZgQ9s6nJ8lcnFv9HQ1mFtuG3B0TXQ=}"
+    expiration-ms: "${SPRING_SECURITY_JWT_EXPIRATION_MS:3600000}"

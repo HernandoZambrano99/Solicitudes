@@ -6,6 +6,7 @@ import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.paginacion.PagedResponse;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
+import co.com.bancolombia.model.sqs.gateways.SqsGateway;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
@@ -29,6 +30,7 @@ public class SolicitudUseCase {
     private final TipoPrestamoRepository tipoPrestamoRepository;
     private final EstadosRepository estadosRepository;
     private final ValidarUsuarioUseCase validarUsuarioUseCase;
+    private final SqsGateway sqsGateway;
 
     public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud, String jwt) {
         return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt)
@@ -129,6 +131,42 @@ public class SolicitudUseCase {
                                     .build());
                 });
     }
+
+    public Mono<SolicitudDetalle> aprobarORechazar(Integer idSolicitud, String nuevoEstado, String jwt) {
+        // 1. Buscar solicitud
+        return buscarPorId(idSolicitud)
+                .flatMap(solicitud -> {
+                    // 2. Traducir texto a idEstado real
+                    int idEstadoNuevo = switch (nuevoEstado.toUpperCase()) {
+                        case "APROBADO" -> 2; // idEstado para aprobado en tu tabla
+                        case "RECHAZADO" -> 3; // idEstado para rechazado
+                        default -> throw new IllegalArgumentException("Estado inválido");
+                    };
+                    solicitud.setIdEstado(idEstadoNuevo);
+                    // 3. Guardar
+                    return solicitudRepository.save(solicitud);
+                })
+                .flatMap(saved -> Mono.zip(
+                        estadosRepository.findById(saved.getIdEstado()),
+                        tipoPrestamoRepository.findById(saved.getIdTipoPrestamo()),
+                        validarUsuarioUseCase.validarSiExiste(saved.getDocumentoIdentidad(), jwt)
+                ).flatMap(tuple -> {
+                    SolicitudDetalle detalle = SolicitudDetalle.builder()
+                            .solicitud(saved)
+                            .estado(tuple.getT1())
+                            .tipoPrestamo(tuple.getT2())
+                            .user(tuple.getT3())
+                            .build();
+                    // 4. Enviar a SQS
+                    return enviarMensajeSQS(detalle).thenReturn(detalle);
+                }));
+    }
+
+    private Mono<Void> enviarMensajeSQS(SolicitudDetalle detalle) {
+        // Implementar con tu Gateway a SQS
+        return sqsGateway.enviarSolicitudActualizada(detalle);
+    }
+
 
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {
         BigDecimal monto = solicitud.getMonto();

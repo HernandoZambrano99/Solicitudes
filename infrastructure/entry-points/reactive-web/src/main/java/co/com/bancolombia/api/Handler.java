@@ -1,6 +1,7 @@
 package co.com.bancolombia.api;
 
 import co.com.bancolombia.api.constants.AppConstants;
+import co.com.bancolombia.api.dto.EstadoSolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudResponseDto;
 import co.com.bancolombia.api.exceptionHandler.RequestValidationException;
@@ -115,4 +116,29 @@ public class Handler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(pagedDto));
     }
+
+    public Mono<ServerResponse> aprobarORechazarSolicitud(ServerRequest serverRequest) {
+        String authHeader = serverRequest.headers().firstHeader(AppConstants.AUTHORIZATION_HEADER);
+        String jwt = (authHeader != null && authHeader.startsWith(AppConstants.BEARER))
+                ? authHeader.substring(7)
+                : null;
+
+        Integer idSolicitud = Integer.valueOf(serverRequest.pathVariable("id"));
+
+        return serverRequest.bodyToMono(EstadoSolicitudRequestDto.class)
+                .flatMap(req -> solicitudUseCase.aprobarORechazar(idSolicitud, req.getNuevoEstado(), jwt))
+                .map(detalle -> solicitudMapper.toDto(
+                        detalle.getSolicitud(),
+                        detalle.getEstado(),
+                        detalle.getTipoPrestamo(),
+                        detalle.getUser()
+                ))
+                .flatMap(dto -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                .onErrorResume(e ->
+                        ServerResponse.status(HttpStatus.BAD_REQUEST)
+                                .bodyValue(e.getMessage()));
+    }
+
 }
