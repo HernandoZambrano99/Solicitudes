@@ -33,11 +33,11 @@ public class SolicitudUseCase {
     private final ValidarUsuarioUseCase validarUsuarioUseCase;
     private final SqsGateway sqsGateway;
 
-    public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud, String jwt) {
-        return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt)
+    public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud) {
+        return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
                 .switchIfEmpty(Mono.error(new UsuarioNotFoundException(solicitud.getDocumentoIdentidad())))
                 .flatMap(usuario ->
-                        validarUsuarioUseCase.validarSiCoincideConJwt(solicitud.getDocumentoIdentidad(), jwt)
+                        validarUsuarioUseCase.validarSiCoincideConJwt(solicitud.getDocumentoIdentidad())
                                 .flatMap(match -> {
                                     if (!match) {
                                         return Mono.error(new UsuarioNoCoincideException(solicitud.getDocumentoIdentidad()));
@@ -87,7 +87,7 @@ public class SolicitudUseCase {
     }
 
     public Mono<PagedResponse<SolicitudDetalle>> getSolicitudesByEstado(
-            List<Integer> idEstados, PageRequest pageRequest, String jwt) {
+            List<Integer> idEstados, PageRequest pageRequest) {
         logger.info(() -> String.format(
                 Constants.GET_SOLICITUDES_BY_ESTADO_INIT,
                 idEstados, pageRequest.getPageNumber(), pageRequest.getPageSize()
@@ -114,7 +114,7 @@ public class SolicitudUseCase {
                                     Mono.zip(
                                             estadosRepository.findById(solicitud.getIdEstado()),
                                             tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo()),
-                                            validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad(), jwt)
+                                            validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
                                     ).map(tuple -> SolicitudDetalle.builder()
                                             .solicitud(solicitud)
                                             .estado(tuple.getT1())
@@ -133,7 +133,7 @@ public class SolicitudUseCase {
                 });
     }
 
-    public Mono<SolicitudDetalle> aprobarORechazar(Integer idSolicitud, String nuevoEstado, String jwt) {
+    public Mono<SolicitudDetalle> aprobarORechazar(Integer idSolicitud, String nuevoEstado) {
         return buscarPorId(idSolicitud)
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(idSolicitud)))
                 .flatMap(solicitud -> {
@@ -147,7 +147,7 @@ public class SolicitudUseCase {
                 .flatMap(saved -> Mono.zip(
                         estadosRepository.findById(saved.getIdEstado()),
                         tipoPrestamoRepository.findById(saved.getIdTipoPrestamo()),
-                        validarUsuarioUseCase.validarSiExiste(saved.getDocumentoIdentidad(), jwt)
+                        validarUsuarioUseCase.validarSiExiste(saved.getDocumentoIdentidad())
                 ).flatMap(tuple -> {
                     SolicitudDetalle detalle = SolicitudDetalle.builder()
                             .solicitud(saved)

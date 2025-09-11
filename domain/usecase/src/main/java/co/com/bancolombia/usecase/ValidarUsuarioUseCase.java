@@ -10,11 +10,11 @@ public class ValidarUsuarioUseCase {
 
     private final UserRepository userRepository;
 
-    public Mono<User> validarSiExiste(String identityDocument, String jwt) {
-        return userRepository.findByDocument(identityDocument, jwt );
+    public Mono<User> validarSiExiste(String identityDocument) {
+        return userRepository.findByDocument(identityDocument);
     }
 
-    public Mono<Boolean> validarSiCoincideConJwt(String identityDocument, String jwt) {
-        return userRepository.validateByDocument(identityDocument, jwt );
+    public Mono<Boolean> validarSiCoincideConJwt(String identityDocument) {
+        return userRepository.validateByDocument(identityDocument);
     }
 }

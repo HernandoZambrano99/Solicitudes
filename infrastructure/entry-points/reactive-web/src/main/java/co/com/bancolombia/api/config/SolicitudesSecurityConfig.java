@@ -81,7 +81,7 @@ public class SolicitudesSecurityConfig {
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-                return Mono.just(new UsernamePasswordAuthenticationToken(email, null, authorities));
+                return Mono.just(new UsernamePasswordAuthenticationToken(email, token, authorities));
             } catch (Exception e) {
                 return Mono.error(new InvalidJwtTokenException(ErrorConstants.EXPIRED_JWT));
             }

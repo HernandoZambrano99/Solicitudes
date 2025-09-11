@@ -20,7 +20,7 @@ public class SolicitudTransactionalAdapter {
     private final TransactionalOperator transactionalOperator;
 
     public Mono<SolicitudDetalle> crearSolicitud(Solicitud solicitud){
-        return solicitudUseCase.ejecutar(solicitud, null )
+        return solicitudUseCase.ejecutar(solicitud)
                 .as(transactionalOperator::transactional);
     }
 
@@ -30,7 +30,7 @@ public class SolicitudTransactionalAdapter {
     }
 
     public Mono<PagedResponse<SolicitudDetalle>> buscarPorFiltro(List<Integer> idEstados, PageRequest pageRequest) {
-        return solicitudUseCase.getSolicitudesByEstado(idEstados, pageRequest, null )
+        return solicitudUseCase.getSolicitudesByEstado(idEstados, pageRequest)
                 .as(transactionalOperator::transactional);
     }
 }

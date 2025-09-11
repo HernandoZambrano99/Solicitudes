@@ -15,7 +15,6 @@ import co.com.bancolombia.model.paginacion.PagedResponse;
 import co.com.bancolombia.usecase.solicitud.SolicitudUseCase;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -35,9 +34,6 @@ public class Handler {
     private final Validator validator;
 
     public Mono<ServerResponse> crearSolicitud(ServerRequest serverRequest) {
-        String authHeader = serverRequest.headers().firstHeader(AppConstants.AUTHORIZATION_HEADER);
-        String jwt = (authHeader != null && authHeader.startsWith(AppConstants.BEARER)) ? authHeader.substring(7) : null;
-
         return serverRequest.bodyToMono(SolicitudRequestDto.class)
                 .flatMap(dto -> {
                     var violations = validator.validate(dto);
@@ -52,7 +48,7 @@ public class Handler {
                     return Mono.just(dto);
                 })
                 .map(solicitudRequestMapper::toModel)
-                .flatMap(solicitud -> solicitudUseCase.ejecutar(solicitud, jwt ))
+                .flatMap(solicitud -> solicitudUseCase.ejecutar(solicitud))
                 .map(solicitudDetalle -> solicitudMapper.toDto(
                         solicitudDetalle.getSolicitud(),
                         solicitudDetalle.getEstado(),
@@ -97,7 +93,7 @@ public class Handler {
                     .toList();
         }
 
-        return solicitudUseCase.getSolicitudesByEstado(estados, pageRequest, jwt)
+        return solicitudUseCase.getSolicitudesByEstado(estados, pageRequest)
                 .map(pagedResponse -> {
                     List<SolicitudResponseDto> dtoList = pagedResponse.getData().stream()
                             .map(detalle -> solicitudMapper.toDto(
@@ -144,7 +140,7 @@ public class Handler {
 
         return serverRequest.bodyToMono(EstadoSolicitudRequestDto.class)
                 .switchIfEmpty(Mono.error(new InvalidParameterException(ErrorConstants.BODY_IS_MANDATORY)))
-                .flatMap(req -> solicitudUseCase.aprobarORechazar(idSolicitud, req.getNuevoEstado(), jwt))
+                .flatMap(req -> solicitudUseCase.aprobarORechazar(idSolicitud, req.getNuevoEstado()))
                 .map(detalle -> solicitudMapper.toDto(
                         detalle.getSolicitud(),
                         detalle.getEstado(),
