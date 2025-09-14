@@ -6,6 +6,8 @@ import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.usuario.User;
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,4 +18,5 @@ public class SolicitudDetalle {
     private Estados estado;
     private TipoPrestamo tipoPrestamo;
     private User user;
+    private List<Solicitud> prestamosAprobados;
 }

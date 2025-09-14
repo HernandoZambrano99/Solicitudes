@@ -6,6 +6,7 @@ import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.paginacion.PagedResponse;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
+import co.com.bancolombia.model.sqs.gateways.CapacidadSqsGateway;
 import co.com.bancolombia.model.sqs.gateways.SqsGateway;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
@@ -32,6 +33,7 @@ public class SolicitudUseCase {
     private final EstadosRepository estadosRepository;
     private final ValidarUsuarioUseCase validarUsuarioUseCase;
     private final SqsGateway sqsGateway;
+    private final CapacidadSqsGateway capacidadSqsGateway;
 
     public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud) {
         return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
@@ -70,7 +72,7 @@ public class SolicitudUseCase {
                     Solicitud saved = (Solicitud) array[0];
                     User usuario = (User) array[1];
                     TipoPrestamo tipo = (TipoPrestamo) array[2];
-
+                    validarYEnviarCapacidadEndeudamiento(saved.getIdSolicitud()); // Llama al metodo que revisa si tiene validacion automatica o no
                     return Mono.zip(
                             estadosRepository.findById(saved.getIdEstado()),
                             Mono.just(tipo)
@@ -159,6 +161,55 @@ public class SolicitudUseCase {
                 })).doOnError(e -> logger.severe(() -> String.format(Constants.APROBAR_RECHAZAR_ERROR,
                         idSolicitud,
                         e.getMessage())));
+    }
+
+    public void validarYEnviarCapacidadEndeudamiento(Integer idSolicitud) {
+        solicitudRepository.findById(idSolicitud)
+                .flatMap(solicitud -> tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
+                        .flatMap(tipo -> {
+                            if (Boolean.TRUE.equals(tipo.getValidacionAutomatica())) {
+                                return enviarCapacidadEndeudamiento(idSolicitud)
+                                        .doOnSuccess(v -> logger.info("Capacidad de endeudamiento enviada para solicitud " + idSolicitud))
+                                        .doOnError(e -> logger.severe("Error enviando capacidad de endeudamiento: " + e.getMessage()));
+                            }
+                            return Mono.empty();
+                        }))
+                .subscribe(); // 👉 lanza en background, no bloquea la respuesta
+    }
+
+    public Mono<Void> enviarCapacidadEndeudamiento(Integer idSolicitud) {
+        // 1. Buscar solicitud por id
+        return solicitudRepository.findById(idSolicitud)
+                .switchIfEmpty(Mono.error(new SolicitudNotFoundException(idSolicitud)))
+                .flatMap(solicitud -> {
+                    // 2. Buscar usuario que hizo la solicitud
+                    return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
+                            .switchIfEmpty(Mono.error(new UsuarioNotFoundException(solicitud.getDocumentoIdentidad())))
+                            .flatMap(usuario -> {
+                                // 3. Buscar préstamos aprobados del usuario
+                                return solicitudRepository
+                                        .findSolicitudesAprobadasByUsuario(
+                                                solicitud.getDocumentoIdentidad(), EstadoSolicitudEnum.APROBADO.getIdEstado())
+                                        .collectList()
+                                        .flatMap(prestamosAprobados -> {
+                                            // 4. Armar SolicitudDetalle con todo
+                                            return Mono.zip(
+                                                    estadosRepository.findById(solicitud.getIdEstado()),
+                                                    tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
+                                            ).flatMap(tuple -> {
+                                                SolicitudDetalle detalle = SolicitudDetalle.builder()
+                                                        .solicitud(solicitud)
+                                                        .estado(tuple.getT1())
+                                                        .tipoPrestamo(tuple.getT2())
+                                                        .user(usuario)
+                                                        .prestamosAprobados(prestamosAprobados)
+                                                        .build();
+                                                // 5. Enviar a la cola de endeudamiento
+                                                return capacidadSqsGateway.consultarCapacidadEndeudamiento(detalle);
+                                            });
+                                        });
+                            });
+                });
     }
 
     private Mono<Void> enviarMensajeSQS(SolicitudDetalle detalle) {

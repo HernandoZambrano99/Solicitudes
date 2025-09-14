@@ -14,4 +14,5 @@ public interface SolicitudRepository {
 
     Flux<Solicitud> findByIdEstadoPaged(List<Integer> idEstado, PageRequest pageRequest);
     Mono<Long> countByIdEstado(List<Integer> idEstado);
+    Flux<Solicitud> findSolicitudesAprobadasByUsuario(String documentoIdentidad, Integer aprobado);
 }

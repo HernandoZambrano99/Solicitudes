@@ -35,4 +35,10 @@ public class SolicitudRepositoryAdapter
         return repository.findSolicitudesParaRevision(idEstados)
                 .count();
     }
+
+    @Override
+    public Flux<Solicitud> findSolicitudesAprobadasByUsuario(String documentoIdentidad, Integer aprobado) {
+        return repository.findSolicitudesAprobadasByUsuario(documentoIdentidad, aprobado)
+                .map(entity -> mapper.map(entity, Solicitud.class));
+    }
 }

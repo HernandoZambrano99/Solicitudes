@@ -3,6 +3,7 @@ package co.com.bancolombia.api;
 import co.com.bancolombia.api.constants.AppConstants;
 import co.com.bancolombia.api.constants.ErrorConstants;
 import co.com.bancolombia.api.dto.EstadoSolicitudRequestDto;
+import co.com.bancolombia.api.dto.SolicitudIdRequestDto;
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudResponseDto;
 import co.com.bancolombia.api.exceptionHandler.InvalidJwtTokenException;
@@ -23,6 +24,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -152,4 +154,32 @@ public class Handler {
                         .bodyValue(dto));
     }
 
+    public Mono<ServerResponse> calcularCapacidadEndeudamiento(ServerRequest request) {
+        return request.bodyToMono(SolicitudIdRequestDto.class)
+                .flatMap(dto -> solicitudUseCase.enviarCapacidadEndeudamiento(dto.getIdSolicitud()))
+                .then(ServerResponse.ok().bodyValue(Map.of("message",
+                        "Proceso lanzado para la solicitud " )));
+    }
+
+
+//    public Mono<ServerResponse> calcularCapacidadEndeudamiento(ServerRequest serverRequest) {
+//        return serverRequest.bodyToMono(SolicitudIdRequestDto.class)
+//                .flatMap(dto -> {
+//                    if (dto.getIdSolicitud() == null) {
+//                        return Mono.error(new InvalidParameterException(ErrorConstants.ID_IS_MANDATORY));
+//                    }
+//
+//                    Integer idSolicitud = dto.getIdSolicitud();
+//
+//                    // Lanza en background (no bloquea la respuesta)
+//                    solicitudUseCase.validarYEnviarCapacidadEndeudamiento(idSolicitud);
+//
+//                    return ServerResponse.ok()
+//                            .contentType(MediaType.APPLICATION_JSON)
+//                            .bodyValue(Map.of("message",
+//                                    "Proceso de capacidad de endeudamiento lanzado para la solicitud " + idSolicitud));
+//                })
+//                .onErrorResume(NumberFormatException.class,
+//                        e -> Mono.error(new InvalidParameterException(ErrorConstants.NO_NUMERIC_ID)));
+//    }
 }

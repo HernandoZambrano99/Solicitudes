@@ -17,4 +17,7 @@ public interface SolicitudDataRepository extends ReactiveCrudRepository<Solicitu
     @Query("SELECT * FROM solicitud s WHERE s.id_estado IN (:estados)")
     Flux<SolicitudEntity> findSolicitudesParaRevision(@Param("estados") List<Integer> estados);
 
+    @Query("SELECT * FROM solicitud s WHERE s.documento_identidad = :documento AND s.id_estado = :estado")
+    Flux<SolicitudEntity> findSolicitudesAprobadasByUsuario(@Param("documento") String documento,
+                                                            @Param("estado") Integer estado);
 }

@@ -49,6 +49,7 @@ public class SolicitudesSecurityConfig {
                         .pathMatchers(HttpMethod.GET, "/api/v1/solicitud/{id}").hasAuthority("ROLE_ASESOR")
                         .pathMatchers(HttpMethod.POST, "/api/v1/solicitud").hasAuthority("ROLE_CLIENT")
                         .pathMatchers(HttpMethod.PUT, "/api/v1/solicitud/{id}").hasAuthority("ROLE_ASESOR")
+                        .pathMatchers(HttpMethod.PUT, "/api/v1/calcular-capacidad").hasAuthority("ROLE_ASESOR")
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(jwtAuthenticationFilter(), SecurityWebFiltersOrder.AUTHENTICATION)

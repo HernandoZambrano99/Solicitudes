@@ -1,5 +1,6 @@
 apply plugin: 'org.springframework.boot'
 dependencies {
+	implementation project(':sqs-listener')
 	implementation project(':sqs-sender')
 	implementation project(':metrics')
 	implementation project(':rest-consumer')

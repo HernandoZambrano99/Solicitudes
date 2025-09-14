@@ -38,11 +38,13 @@ adapter:
     timeout: 5000
     url: "${RESTCONSUMER_URL:http://localhost:8082}"
   sqs:
-    region: "us-east-1"
-    queueUrl: "https://sqs.us-east-1.amazonaws.com/821368348315/SolicitudesQueue"
-#    endpoint:
-    AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
-    AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+    update:
+      region: "us-east-1"
+      queueUrl: "${SQS_NOTIFICATION:https://sqs.us-east-1.amazonaws.com/821368348315/SolicitudesQueue}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+    calculator:
+      queueUrl: "${SQS_CALCULATOR:https://sqs.us-east-1.amazonaws.com/821368348315/CalculoEndeudamientoQueue}"
 resilience4j:
   circuitbreaker:
     instances:
@@ -68,3 +70,14 @@ security:
   jwt:
     secret: "${SPRING_SECURITY_JWT_SECRET:0Dz2RFrDttxXG9ZgQ9s6nJ8lcnFv9HQ1mFtuG3B0TXQ=}"
     expiration-ms: "${SPRING_SECURITY_JWT_EXPIRATION_MS:3600000}"
+entrypoint:
+  sqs:
+    region: "us-east-1"
+    #endpoint: "http://localhost:4566"
+    queueUrl: "${SQS_LISTENER:https://sqs.us-east-1.amazonaws.com/821368348315/EndeudamientoResponseQueue}"
+    waitTimeSeconds: 20
+    maxNumberOfMessages: 10
+    visibilityTimeoutSeconds: 10
+    numberOfThreads: 1
+    AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+    AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"

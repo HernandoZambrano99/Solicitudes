@@ -107,6 +107,7 @@ public class RouterRest {
         return route(GET("/api/v1/solicitud/{id}"), handler::getSolicitudById)
                 .andRoute(POST("/api/v1/solicitud"), handler::crearSolicitud)
                 .andRoute(GET("/api/v1/solicitud"), handler::getAllSolicitudesWithFilters)
-                .andRoute(PUT("/api/v1/solicitud/{id}"), handler::aprobarORechazarSolicitud);
+                .andRoute(PUT("/api/v1/solicitud/{id}"), handler::aprobarORechazarSolicitud)
+                .andRoute(POST("/api/v1/calcular-capacidad"), handler::calcularCapacidadEndeudamiento);
     }
 }
