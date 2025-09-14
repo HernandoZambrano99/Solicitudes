@@ -38,6 +38,7 @@ public class SQSCapacidadSender implements CapacidadSqsGateway {
     @Override
     public Mono<Void> consultarCapacidadEndeudamiento(SolicitudDetalle detalle) {
         return Mono.fromCallable(() -> {
+                    System.out.println("Detalle: " + detalle.getPrestamosAprobados());
                     EndeudamientoSqsDto dto = mapper.toDto(detalle);
                     log.info("Enviando solicitud {} a SQS para cálculo de capacidad de endeudamiento",
                             dto.getSolicitudId());

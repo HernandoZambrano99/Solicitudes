@@ -3,7 +3,10 @@ package co.com.bancolombia.usecase.enums;
 public enum EstadoSolicitudEnum {
 
     APROBADO(2),
-    RECHAZADO(3);
+    RECHAZADO(3),
+    REVISION_MANUAL(4),
+    PENDIENTE_REVISION(1);
+
 
     private final int idEstado;
 

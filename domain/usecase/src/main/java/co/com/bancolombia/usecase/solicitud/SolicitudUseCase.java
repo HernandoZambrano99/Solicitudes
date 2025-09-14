@@ -9,6 +9,7 @@ import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.sqs.gateways.CapacidadSqsGateway;
 import co.com.bancolombia.model.sqs.gateways.SqsGateway;
+import co.com.bancolombia.model.tipoprestamo.PrestamoConTipo;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
@@ -166,57 +167,68 @@ public class SolicitudUseCase {
     }
 
     public Mono<Void> validarYEnviarCapacidadEndeudamiento(Integer idSolicitud) {
-        logger.info("Entrando a validarYEnviarCapacidadEndeudamiento con id " + idSolicitud);
+        logger.info(String.format(Constants.VALIDAR_CAPACIDAD_INICIO, idSolicitud));
         return solicitudRepository.findById(idSolicitud)
                 .flatMap(solicitud -> tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
                         .flatMap(tipo -> {
-                            logger.info("Tipo préstamo " + tipo.getNombre() +
-                                    " validacionAutomatica=" + tipo.getValidacionAutomatica());
+                            logger.info(String.format(
+                                    Constants.VALIDAR_CAPACIDAD_TIPO,
+                                    tipo.getNombre(),
+                                    tipo.getValidacionAutomatica()
+                            ));
                             if (Boolean.TRUE.equals(tipo.getValidacionAutomatica())) {
-                                logger.info("Llamando enviarCapacidadEndeudamiento...");
+                                logger.info(Constants.VALIDAR_CAPACIDAD_LLAMANDO);
                                 return enviarCapacidadEndeudamiento(idSolicitud)
-                                        .doOnSuccess(v -> logger.info("Capacidad de endeudamiento enviada para solicitud " + idSolicitud))
-                                        .doOnError(e -> logger.severe("Error enviando capacidad de endeudamiento: " + e.getMessage()));
+                                        .doOnSuccess(v -> logger.info(String.format(
+                                                Constants.VALIDAR_CAPACIDAD_ENVIADA,
+                                                idSolicitud
+                                        )))
+                                        .doOnError(e -> logger.severe(String.format(
+                                                Constants.VALIDAR_CAPACIDAD_ERROR,
+                                                e.getMessage()
+                                        )));
                             }
-                            // si no es automática, no hacemos nada
                             return Mono.empty();
                         }))
-                .then(); // devolvemos Mono<Void>
+                .then();
     }
 
     public Mono<Void> enviarCapacidadEndeudamiento(Integer idSolicitud) {
-        // 1. Buscar solicitud por id
         return solicitudRepository.findById(idSolicitud)
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(idSolicitud)))
-                .flatMap(solicitud -> {
-                    // 2. Buscar usuario que hizo la solicitud
-                    return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
-                            .switchIfEmpty(Mono.error(new UsuarioNotFoundException(solicitud.getDocumentoIdentidad())))
-                            .flatMap(usuario -> {
-                                // 3. Buscar préstamos aprobados del usuario
-                                return solicitudRepository
-                                        .findSolicitudesAprobadasByUsuario(
-                                                solicitud.getDocumentoIdentidad(), EstadoSolicitudEnum.APROBADO.getIdEstado())
-                                        .collectList()
-                                        .flatMap(prestamosAprobados -> {
-                                            // 4. Armar SolicitudDetalle con todo
-                                            return Mono.zip(
-                                                    estadosRepository.findById(solicitud.getIdEstado()),
-                                                    tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
-                                            ).flatMap(tuple -> {
-                                                SolicitudDetalle detalle = SolicitudDetalle.builder()
-                                                        .solicitud(solicitud)
-                                                        .estado(tuple.getT1())
-                                                        .tipoPrestamo(tuple.getT2())
-                                                        .user(usuario)
-                                                        .prestamosAprobados(prestamosAprobados)
-                                                        .build();
-                                                // 5. Enviar a la cola de endeudamiento
-                                                return capacidadSqsGateway.consultarCapacidadEndeudamiento(detalle);
-                                            });
-                                        });
-                            });
-                });
+                .flatMap(solicitud ->
+                        validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
+                                .switchIfEmpty(Mono.error(new UsuarioNotFoundException(solicitud.getDocumentoIdentidad())))
+                                .flatMap(usuario ->
+                                        solicitudRepository.findSolicitudesAprobadasByUsuario(
+                                                        solicitud.getDocumentoIdentidad(),
+                                                        EstadoSolicitudEnum.APROBADO.getIdEstado())
+                                                .flatMap(aprobada ->
+                                                        tipoPrestamoRepository.findById(aprobada.getIdTipoPrestamo())
+                                                                .map(tipoPrestamo -> PrestamoConTipo.builder()
+                                                                        .solicitud(aprobada)
+                                                                        .tipoPrestamo(tipoPrestamo)
+                                                                        .build()
+                                                                )
+                                                )
+                                                .collectList()
+                                                .flatMap(prestamosAprobados ->
+                                                        Mono.zip(
+                                                                estadosRepository.findById(solicitud.getIdEstado()),
+                                                                tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
+                                                        ).flatMap(tuple -> {
+                                                            SolicitudDetalle detalle = SolicitudDetalle.builder()
+                                                                    .solicitud(solicitud)
+                                                                    .estado(tuple.getT1())
+                                                                    .tipoPrestamo(tuple.getT2())
+                                                                    .user(usuario)
+                                                                    .prestamosAprobados(prestamosAprobados)
+                                                                    .build();
+                                                            return capacidadSqsGateway.consultarCapacidadEndeudamiento(detalle);
+                                                        })
+                                                )
+                                )
+                );
     }
 
     private Mono<Void> enviarMensajeSQS(SolicitudDetalle detalle) {
@@ -227,20 +239,21 @@ public class SolicitudUseCase {
         return solicitudRepository.findById(result.getSolicitudId())
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(result.getSolicitudId())))
                 .flatMap(solicitud -> {
-                    // conviertes la decision a tu enum
                     EstadoSolicitudEnum estadoEnum = EstadoSolicitudEnum.fromString(result.getDecision());
                     solicitud.setIdEstado(estadoEnum.getIdEstado());
                     return solicitudRepository.save(solicitud);
                 })
-                .doOnSuccess(saved -> {
-                    // java.util.logging.Logger: concatenar Strings
-                    logger.info("Solicitud " + result.getSolicitudId()
-                            + " actualizada con éxito a estado " + result.getDecision());
-                })
-                .doOnError(e -> {
-                    logger.severe("Error actualizando solicitud " + result.getSolicitudId() + ": " + e.getMessage());
-                })
-                .then(); // devolvemos Mono<Void>
+                .doOnSuccess(saved -> logger.info(String.format(
+                            Constants.SOLICITUD_ACTUALIZADA_EXITO,
+                            result.getSolicitudId(),
+                            result.getDecision()))
+                )
+                .doOnError(e -> logger.severe(String.format(
+                        Constants.SOLICITUD_ACTUALIZADA_ERROR,
+                        result.getSolicitudId(),
+                        e.getMessage()
+                )))
+                .then();
     }
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {
         BigDecimal monto = solicitud.getMonto();
@@ -261,7 +274,6 @@ public class SolicitudUseCase {
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(id)));
     }
 
-    // en SolicitudUseCase
     public Mono<SolicitudDetalle> buscarDetallePorId(Integer idSolicitud) {
         return solicitudRepository.findById(idSolicitud)
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(idSolicitud)))
