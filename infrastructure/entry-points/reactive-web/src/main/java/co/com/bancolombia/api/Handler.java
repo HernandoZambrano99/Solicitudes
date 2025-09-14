@@ -160,26 +160,4 @@ public class Handler {
                 .then(ServerResponse.ok().bodyValue(Map.of("message",
                         "Proceso lanzado para la solicitud " )));
     }
-
-
-//    public Mono<ServerResponse> calcularCapacidadEndeudamiento(ServerRequest serverRequest) {
-//        return serverRequest.bodyToMono(SolicitudIdRequestDto.class)
-//                .flatMap(dto -> {
-//                    if (dto.getIdSolicitud() == null) {
-//                        return Mono.error(new InvalidParameterException(ErrorConstants.ID_IS_MANDATORY));
-//                    }
-//
-//                    Integer idSolicitud = dto.getIdSolicitud();
-//
-//                    // Lanza en background (no bloquea la respuesta)
-//                    solicitudUseCase.validarYEnviarCapacidadEndeudamiento(idSolicitud);
-//
-//                    return ServerResponse.ok()
-//                            .contentType(MediaType.APPLICATION_JSON)
-//                            .bodyValue(Map.of("message",
-//                                    "Proceso de capacidad de endeudamiento lanzado para la solicitud " + idSolicitud));
-//                })
-//                .onErrorResume(NumberFormatException.class,
-//                        e -> Mono.error(new InvalidParameterException(ErrorConstants.NO_NUMERIC_ID)));
-//    }
 }

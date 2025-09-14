@@ -4,6 +4,7 @@ import co.com.bancolombia.model.SolicitudDetalle;
 import co.com.bancolombia.model.estados.gateways.EstadosRepository;
 import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.paginacion.PagedResponse;
+import co.com.bancolombia.model.resultado.ResultadoSolicitud;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.sqs.gateways.CapacidadSqsGateway;
@@ -163,18 +164,23 @@ public class SolicitudUseCase {
                         e.getMessage())));
     }
 
-    public void validarYEnviarCapacidadEndeudamiento(Integer idSolicitud) {
-        solicitudRepository.findById(idSolicitud)
+    public Mono<Void> validarYEnviarCapacidadEndeudamiento(Integer idSolicitud) {
+        logger.info("Entrando a validarYEnviarCapacidadEndeudamiento con id " + idSolicitud);
+        return solicitudRepository.findById(idSolicitud)
                 .flatMap(solicitud -> tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())
                         .flatMap(tipo -> {
+                            logger.info("Tipo préstamo " + tipo.getNombre() +
+                                    " validacionAutomatica=" + tipo.getValidacionAutomatica());
                             if (Boolean.TRUE.equals(tipo.getValidacionAutomatica())) {
+                                logger.info("Llamando enviarCapacidadEndeudamiento...");
                                 return enviarCapacidadEndeudamiento(idSolicitud)
                                         .doOnSuccess(v -> logger.info("Capacidad de endeudamiento enviada para solicitud " + idSolicitud))
                                         .doOnError(e -> logger.severe("Error enviando capacidad de endeudamiento: " + e.getMessage()));
                             }
+                            // si no es automática, no hacemos nada
                             return Mono.empty();
                         }))
-                .subscribe(); // 👉 lanza en background, no bloquea la respuesta
+                .then(); // devolvemos Mono<Void>
     }
 
     public Mono<Void> enviarCapacidadEndeudamiento(Integer idSolicitud) {
@@ -216,7 +222,25 @@ public class SolicitudUseCase {
         return sqsGateway.enviarSolicitudActualizada(detalle);
     }
 
-
+    public Mono<Void> actualizarEstadoConResultado(ResultadoSolicitud result) {
+        return solicitudRepository.findById(result.getSolicitudId())
+                .switchIfEmpty(Mono.error(new SolicitudNotFoundException(result.getSolicitudId())))
+                .flatMap(solicitud -> {
+                    // conviertes la decision a tu enum
+                    EstadoSolicitudEnum estadoEnum = EstadoSolicitudEnum.fromString(result.getDecision());
+                    solicitud.setIdEstado(estadoEnum.getIdEstado());
+                    return solicitudRepository.save(solicitud);
+                })
+                .doOnSuccess(saved -> {
+                    // java.util.logging.Logger: concatenar Strings
+                    logger.info("Solicitud " + result.getSolicitudId()
+                            + " actualizada con éxito a estado " + result.getDecision());
+                })
+                .doOnError(e -> {
+                    logger.severe("Error actualizando solicitud " + result.getSolicitudId() + ": " + e.getMessage());
+                })
+                .then(); // devolvemos Mono<Void>
+    }
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {
         BigDecimal monto = solicitud.getMonto();
         BigDecimal minimo = tipo.getMontoMinimo();

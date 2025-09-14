@@ -19,15 +19,15 @@ import software.amazon.awssdk.services.sqs.model.SendMessageResponse;
 @RequiredArgsConstructor
 public class SQSCapacidadSender implements CapacidadSqsGateway {
 
-    private final SQSCapacidadProperties properties; // propiedades con la URL de tu cola CalculoEndeudamientoQueue
+    private final SQSCapacidadProperties properties;
     private final SqsAsyncClient client;
     private final ObjectMapper objectMapper;
-    private final EndeudamientoSqsDtoMapper mapper; // lo implementas igual que SolicitudesSqsDtoMapper
+    private final EndeudamientoSqsDtoMapper mapper;
 
     private Mono<String> send(String message) {
         return Mono.fromCallable(() ->
                         SendMessageRequest.builder()
-                                .queueUrl(properties.queueUrl()) // la URL de la cola de entrada
+                                .queueUrl(properties.queueUrl())
                                 .messageBody(message)
                                 .build())
                 .flatMap(request -> Mono.fromFuture(client.sendMessage(request)))
@@ -38,14 +38,9 @@ public class SQSCapacidadSender implements CapacidadSqsGateway {
     @Override
     public Mono<Void> consultarCapacidadEndeudamiento(SolicitudDetalle detalle) {
         return Mono.fromCallable(() -> {
-                    // Mapea el detalle a tu DTO de endeudamiento
                     EndeudamientoSqsDto dto = mapper.toDto(detalle);
-                    log.info("Dto a enviar: " + dto.getIngresosTotales());
-
                     log.info("Enviando solicitud {} a SQS para cálculo de capacidad de endeudamiento",
                             dto.getSolicitudId());
-                    String json = objectMapper.writeValueAsString(dto);
-                    log.info("JSON enviado a SQS: {}", json);
                     return objectMapper.writeValueAsString(dto);
                 })
                 .flatMap(this::send)
