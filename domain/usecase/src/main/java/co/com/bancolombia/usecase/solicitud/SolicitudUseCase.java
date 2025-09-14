@@ -73,19 +73,20 @@ public class SolicitudUseCase {
                     Solicitud saved = (Solicitud) array[0];
                     User usuario = (User) array[1];
                     TipoPrestamo tipo = (TipoPrestamo) array[2];
-                    validarYEnviarCapacidadEndeudamiento(saved.getIdSolicitud()); // Llama al metodo que revisa si tiene validacion automatica o no
-                    return Mono.zip(
-                            estadosRepository.findById(saved.getIdEstado()),
-                            Mono.just(tipo)
-                    ).map(tuple -> {
-                        logger.info(Constants.REQUEST_SAVED_SUCCESS + saved.getIdSolicitud());
-                        return SolicitudDetalle.builder()
-                                .solicitud(saved)
-                                .estado(tuple.getT1())
-                                .tipoPrestamo(tuple.getT2())
-                                .user(usuario)
-                                .build();
-                    });
+                    // encadenamos aquí
+                    return validarYEnviarCapacidadEndeudamiento(saved.getIdSolicitud())
+                            .then(Mono.zip(
+                                    estadosRepository.findById(saved.getIdEstado()),
+                                    Mono.just(tipo)
+                            ).map(tuple -> {
+                                logger.info(Constants.REQUEST_SAVED_SUCCESS + saved.getIdSolicitud());
+                                return SolicitudDetalle.builder()
+                                        .solicitud(saved)
+                                        .estado(tuple.getT1())
+                                        .tipoPrestamo(tuple.getT2())
+                                        .user(usuario)
+                                        .build();
+                            }));
                 });
     }
 
@@ -259,4 +260,23 @@ public class SolicitudUseCase {
         return solicitudRepository.findById(id)
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(id)));
     }
+
+    // en SolicitudUseCase
+    public Mono<SolicitudDetalle> buscarDetallePorId(Integer idSolicitud) {
+        return solicitudRepository.findById(idSolicitud)
+                .switchIfEmpty(Mono.error(new SolicitudNotFoundException(idSolicitud)))
+                .flatMap(solicitud ->
+                        Mono.zip(
+                                estadosRepository.findById(solicitud.getIdEstado()),
+                                tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo()),
+                                validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
+                        ).map(tuple -> SolicitudDetalle.builder()
+                                .solicitud(solicitud)
+                                .estado(tuple.getT1())
+                                .tipoPrestamo(tuple.getT2())
+                                .user(tuple.getT3())
+                                .build())
+                );
+    }
+
 }

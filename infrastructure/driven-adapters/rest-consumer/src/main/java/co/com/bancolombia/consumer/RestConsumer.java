@@ -21,12 +21,10 @@ public class RestConsumer implements UserRepository {
         return ReactiveSecurityContextHolder.getContext()
                 .doOnSubscribe(s -> log.info("Buscando token en contexto"))
                 .map(ctx -> (String) ctx.getAuthentication().getCredentials())
-                .doOnNext(jwt -> log.info("JWT encontrado {}", jwt))
                 .flatMap(jwt -> client.get()
                         .uri("/api/v1/usuarios/find/{identityDocument}", identityDocument)
                         .headers(httpHeaders -> httpHeaders.setBearerAuth(jwt))
                         .exchangeToMono(response -> {
-                            log.info("Respuesta {} para usuario {}", response.statusCode(), identityDocument);
                             if (response.statusCode().is2xxSuccessful()) {
                                 return response.bodyToMono(UserResponse.class)
                                         .map(resp -> User.builder()

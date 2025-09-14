@@ -13,6 +13,7 @@ import co.com.bancolombia.api.mapper.SolicitudMapper;
 import co.com.bancolombia.api.mapper.SolicitudRequestMapper;
 import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.paginacion.PagedResponse;
+import co.com.bancolombia.usecase.exceptions.SolicitudNotFoundException;
 import co.com.bancolombia.usecase.solicitud.SolicitudUseCase;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -62,9 +63,25 @@ public class Handler {
 
     public Mono<ServerResponse> getSolicitudById(ServerRequest serverRequest) {
         String id = serverRequest.pathVariable("id");
-        return solicitudUseCase.buscarPorId(Integer.valueOf(id))
-                .flatMap(solicitud -> ServerResponse.ok().bodyValue(solicitud))
-                .switchIfEmpty(ServerResponse.notFound().build())
+        Integer idSolicitud;
+        try {
+            idSolicitud = Integer.valueOf(id);
+        } catch (NumberFormatException e) {
+            return ServerResponse.badRequest().bodyValue("Id no numérico");
+        }
+
+        return solicitudUseCase.buscarDetallePorId(idSolicitud)
+                .map(detalle -> solicitudMapper.toDto(
+                        detalle.getSolicitud(),
+                        detalle.getEstado(),
+                        detalle.getTipoPrestamo(),
+                        detalle.getUser()
+                ))
+                .flatMap(dto -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                .onErrorResume(SolicitudNotFoundException.class,
+                        e -> ServerResponse.notFound().build())
                 .onErrorResume(error ->
                         ServerResponse.status(500).bodyValue(error.getMessage()));
     }
