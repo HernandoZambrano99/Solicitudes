@@ -1,6 +1,7 @@
 package co.com.bancolombia.usecase.solicitud;
 
 import co.com.bancolombia.model.SolicitudDetalle;
+import co.com.bancolombia.model.resultado.ResultadoSolicitud;
 import co.com.bancolombia.model.estados.Estados;
 import co.com.bancolombia.model.estados.gateways.EstadosRepository;
 import co.com.bancolombia.model.paginacion.PageRequest;
@@ -19,14 +20,14 @@ import co.com.bancolombia.usecase.exceptions.UsuarioNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 class SolicitudUseCaseTest {
@@ -65,6 +66,12 @@ class SolicitudUseCaseTest {
         when(tipoPrestamoRepository.findById(eq(1))).thenReturn(Mono.just(tipoPrestamo));
         when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(savedSolicitud));
         when(estadosRepository.findById(eq(1))).thenReturn(Mono.just(estado));
+        when(solicitudRepository.findById(anyInt()))
+                .thenReturn(Mono.just(savedSolicitud));
+        when(capacidadSqsGateway.consultarCapacidadEndeudamiento(any(SolicitudDetalle.class)))
+                .thenReturn(Mono.empty());
+        when(solicitudRepository.findSolicitudesAprobadasByUsuario(anyString(), anyInt()))
+                .thenReturn(Flux.empty());
 
         Mono<SolicitudDetalle> result = solicitudUseCase.ejecutar(solicitud);
 
@@ -273,4 +280,132 @@ class SolicitudUseCaseTest {
                         throwable.getMessage().equals("SQS fallo"))
                 .verify();
     }
+
+    @Test
+    void validarYEnviarCapacidadEndeudamientoCallsEnviarWhenValidacionAutomaticaTrue() {
+        Integer idSolicitud = 1;
+
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        solicitud.setIdSolicitud(idSolicitud);
+
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        tipoPrestamo.setValidacionAutomatica(true);
+
+        User user = SolicitudTestData.buildUsuarioValido();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+
+        // mocks para validarYEnviarCapacidadEndeudamiento
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+        when(tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())).thenReturn(Mono.just(tipoPrestamo));
+
+        // mocks para enviarCapacidadEndeudamiento interno
+        when(validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())).thenReturn(Mono.just(user));
+        when(solicitudRepository.findSolicitudesAprobadasByUsuario(any(), any()))
+                .thenReturn(Flux.just(solicitud));
+        when(estadosRepository.findById(solicitud.getIdEstado())).thenReturn(Mono.just(estado));
+        when(tipoPrestamoRepository.findById(any())).thenReturn(Mono.just(tipoPrestamo));
+        when(capacidadSqsGateway.consultarCapacidadEndeudamiento(any(SolicitudDetalle.class)))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.validarYEnviarCapacidadEndeudamiento(idSolicitud))
+                .verifyComplete();
+    }
+
+    @Test
+    void validarYEnviarCapacidadEndeudamientoSkipsWhenValidacionAutomaticaFalse() {
+        Integer idSolicitud = 1;
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        tipoPrestamo.setValidacionAutomatica(false);
+
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+        when(tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())).thenReturn(Mono.just(tipoPrestamo));
+
+        StepVerifier.create(solicitudUseCase.validarYEnviarCapacidadEndeudamiento(idSolicitud))
+                .verifyComplete();
+    }
+
+    @Test
+    void enviarCapacidadEndeudamientoSuccess() {
+        Integer idSolicitud = 1;
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        User user = SolicitudTestData.buildUsuarioValido();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+
+        // mocks principales
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+        when(validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())).thenReturn(Mono.just(user));
+        // solicitudes aprobadas del usuario
+        when(solicitudRepository.findSolicitudesAprobadasByUsuario(any(), any()))
+                .thenReturn(reactor.core.publisher.Flux.just(solicitud));
+        when(tipoPrestamoRepository.findById(any())).thenReturn(Mono.just(tipoPrestamo));
+        when(estadosRepository.findById(any())).thenReturn(Mono.just(estado));
+        when(capacidadSqsGateway.consultarCapacidadEndeudamiento(any(SolicitudDetalle.class)))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.enviarCapacidadEndeudamiento(idSolicitud))
+                .verifyComplete();
+    }
+    @Test
+    void actualizarEstadoConResultadoSuccess() {
+        ResultadoSolicitud result = new ResultadoSolicitud();
+        result.setSolicitudId(1);
+        result.setDecision("APROBADO");
+
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+
+        when(solicitudRepository.findById(1)).thenReturn(Mono.just(solicitud));
+        when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(solicitud));
+
+        StepVerifier.create(solicitudUseCase.actualizarEstadoConResultado(result))
+                .verifyComplete();
+    }
+
+    @Test
+    void actualizarEstadoConResultadoFailsWhenSolicitudNotFound() {
+        ResultadoSolicitud result = new ResultadoSolicitud();
+        result.setSolicitudId(999);
+        result.setDecision("APROBADO");
+
+        when(solicitudRepository.findById(999)).thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.actualizarEstadoConResultado(result))
+                .expectError(SolicitudNotFoundException.class)
+                .verify();
+    }
+
+    @Test
+    void buscarDetallePorIdSuccess() {
+        Integer idSolicitud = 1;
+        Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
+        Estados estado = SolicitudTestData.buildEstadoPendiente();
+        TipoPrestamo tipoPrestamo = SolicitudTestData.buildTipoPrestamoValido();
+        User user = SolicitudTestData.buildUsuarioValido();
+
+        when(solicitudRepository.findById(idSolicitud)).thenReturn(Mono.just(solicitud));
+        when(estadosRepository.findById(solicitud.getIdEstado())).thenReturn(Mono.just(estado));
+        when(tipoPrestamoRepository.findById(solicitud.getIdTipoPrestamo())).thenReturn(Mono.just(tipoPrestamo));
+        when(validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())).thenReturn(Mono.just(user));
+
+        StepVerifier.create(solicitudUseCase.buscarDetallePorId(idSolicitud))
+                .assertNext(detalle -> {
+                    assertEquals(solicitud, detalle.getSolicitud());
+                    assertEquals(estado, detalle.getEstado());
+                    assertEquals(tipoPrestamo, detalle.getTipoPrestamo());
+                    assertEquals(user, detalle.getUser());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void buscarDetallePorIdFailsWhenNotFound() {
+        when(solicitudRepository.findById(999)).thenReturn(Mono.empty());
+
+        StepVerifier.create(solicitudUseCase.buscarDetallePorId(999))
+                .expectError(SolicitudNotFoundException.class)
+                .verify();
+    }
+
+
 }
