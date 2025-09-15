@@ -45,6 +45,8 @@ adapter:
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
     calculator:
       queueUrl: "${SQS_CALCULATOR:https://sqs.us-east-1.amazonaws.com/821368348315/CalculoEndeudamientoQueue}"
+    solicitud:
+      queueUrl: "${SQS_SOLICITUD:https://sqs.us-east-1.amazonaws.com/821368348315/SolicitudAprobadaQueue}"
 resilience4j:
   circuitbreaker:
     instances:

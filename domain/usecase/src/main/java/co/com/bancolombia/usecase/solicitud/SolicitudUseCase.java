@@ -8,6 +8,7 @@ import co.com.bancolombia.model.resultado.ResultadoSolicitud;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.sqs.gateways.CapacidadSqsGateway;
+import co.com.bancolombia.model.sqs.gateways.SolicitudSqsGateway;
 import co.com.bancolombia.model.sqs.gateways.SqsGateway;
 import co.com.bancolombia.model.tipoprestamo.PrestamoConTipo;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
@@ -36,6 +37,7 @@ public class SolicitudUseCase {
     private final ValidarUsuarioUseCase validarUsuarioUseCase;
     private final SqsGateway sqsGateway;
     private final CapacidadSqsGateway capacidadSqsGateway;
+    private final SolicitudSqsGateway solicitudSqsGateway;
 
     public Mono<SolicitudDetalle> ejecutar(Solicitud solicitud) {
         return validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad())
@@ -235,6 +237,11 @@ public class SolicitudUseCase {
         return sqsGateway.enviarSolicitudActualizada(detalle);
     }
 
+    private Mono<Void> notificarSolicitudAprobada(SolicitudDetalle detalle) {
+        System.out.println("Se llamó al metodo notificar solicitud aprobada");
+        return solicitudSqsGateway.reportarSolicitudAprobada(detalle);
+    }
+
     public Mono<Void> actualizarEstadoConResultado(ResultadoSolicitud result) {
         return solicitudRepository.findById(result.getSolicitudId())
                 .switchIfEmpty(Mono.error(new SolicitudNotFoundException(result.getSolicitudId())))
@@ -243,18 +250,40 @@ public class SolicitudUseCase {
                     solicitud.setIdEstado(estadoEnum.getIdEstado());
                     return solicitudRepository.save(solicitud);
                 })
-                .doOnSuccess(saved -> logger.info(String.format(
-                            Constants.SOLICITUD_ACTUALIZADA_EXITO,
-                            result.getSolicitudId(),
-                            result.getDecision()))
+                .flatMap(saved ->
+                        Mono.zip(
+                                estadosRepository.findById(saved.getIdEstado()),
+                                tipoPrestamoRepository.findById(saved.getIdTipoPrestamo()),
+                                validarUsuarioUseCase.validarSiExiste(saved.getDocumentoIdentidad())
+                        ).flatMap(tuple -> {
+                            SolicitudDetalle detalle = SolicitudDetalle.builder()
+                                    .solicitud(saved)
+                                    .estado(tuple.getT1())
+                                    .tipoPrestamo(tuple.getT2())
+                                    .user(tuple.getT3())
+                                    .build();
+
+                            if (EstadoSolicitudEnum.APROBADO.getIdEstado() == saved.getIdEstado()) {
+                                // devolvemos el Mono de la notificación
+                                return notificarSolicitudAprobada(detalle)
+                                        .thenReturn(detalle); // si quieres además devolver detalle
+                            }
+                            return Mono.just(detalle);
+                        })
+                )
+                .doOnSuccess(v -> logger.info(String.format(
+                        Constants.SOLICITUD_ACTUALIZADA_EXITO,
+                        result.getSolicitudId(),
+                        result.getDecision()))
                 )
                 .doOnError(e -> logger.severe(String.format(
                         Constants.SOLICITUD_ACTUALIZADA_ERROR,
                         result.getSolicitudId(),
                         e.getMessage()
                 )))
-                .then();
+                .then(); // <- importante: cierra con then() para Mono<Void>
     }
+
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {
         BigDecimal monto = solicitud.getMonto();
         BigDecimal minimo = tipo.getMontoMinimo();
