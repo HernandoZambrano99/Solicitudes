@@ -162,7 +162,14 @@ public class SolicitudUseCase {
                             .tipoPrestamo(tuple.getT2())
                             .user(tuple.getT3())
                             .build();
-                    return enviarMensajeSQS(detalle).thenReturn(detalle);
+                    Mono<Void> envioGeneral = enviarMensajeActualizacion(detalle);
+
+                    Mono<Void> envioAprobado = EstadoSolicitudEnum.APROBADO.getIdEstado() == saved.getIdEstado()
+                            ? notificarSolicitudAprobada(detalle)
+                            : Mono.empty();
+
+                    return Mono.when(envioGeneral, envioAprobado).thenReturn(detalle);
+
                 })).doOnError(e -> logger.severe(() -> String.format(Constants.APROBAR_RECHAZAR_ERROR,
                         idSolicitud,
                         e.getMessage())));
@@ -233,12 +240,11 @@ public class SolicitudUseCase {
                 );
     }
 
-    private Mono<Void> enviarMensajeSQS(SolicitudDetalle detalle) {
+    private Mono<Void> enviarMensajeActualizacion(SolicitudDetalle detalle) {
         return sqsGateway.enviarSolicitudActualizada(detalle);
     }
 
     private Mono<Void> notificarSolicitudAprobada(SolicitudDetalle detalle) {
-        System.out.println("Se llamó al metodo notificar solicitud aprobada");
         return solicitudSqsGateway.reportarSolicitudAprobada(detalle);
     }
 
@@ -264,9 +270,8 @@ public class SolicitudUseCase {
                                     .build();
 
                             if (EstadoSolicitudEnum.APROBADO.getIdEstado() == saved.getIdEstado()) {
-                                // devolvemos el Mono de la notificación
                                 return notificarSolicitudAprobada(detalle)
-                                        .thenReturn(detalle); // si quieres además devolver detalle
+                                        .thenReturn(detalle);
                             }
                             return Mono.just(detalle);
                         })
@@ -281,7 +286,7 @@ public class SolicitudUseCase {
                         result.getSolicitudId(),
                         e.getMessage()
                 )))
-                .then(); // <- importante: cierra con then() para Mono<Void>
+                .then();
     }
 
     private Mono<Solicitud> validarMonto(Solicitud solicitud, TipoPrestamo tipo) {
