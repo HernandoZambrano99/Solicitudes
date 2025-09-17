@@ -8,6 +8,7 @@ import co.com.bancolombia.model.paginacion.PageRequest;
 import co.com.bancolombia.model.solicitud.Solicitud;
 import co.com.bancolombia.model.solicitud.gateways.SolicitudRepository;
 import co.com.bancolombia.model.sqs.gateways.CapacidadSqsGateway;
+import co.com.bancolombia.model.sqs.gateways.SolicitudSqsGateway;
 import co.com.bancolombia.model.sqs.gateways.SqsGateway;
 import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
@@ -39,6 +40,7 @@ class SolicitudUseCaseTest {
     private ValidarUsuarioUseCase validarUsuarioUseCase;
     private SqsGateway sqsGateway;
     private CapacidadSqsGateway capacidadSqsGateway;
+    private SolicitudSqsGateway solicitudSqsGateway;
 
     @BeforeEach
     void setUp() {
@@ -48,7 +50,8 @@ class SolicitudUseCaseTest {
         validarUsuarioUseCase = Mockito.mock(ValidarUsuarioUseCase.class);
         sqsGateway = Mockito.mock(SqsGateway.class);
         capacidadSqsGateway = Mockito.mock(CapacidadSqsGateway.class);
-        solicitudUseCase = new SolicitudUseCase(solicitudRepository, tipoPrestamoRepository, estadosRepository, validarUsuarioUseCase, sqsGateway, capacidadSqsGateway);
+        solicitudSqsGateway = Mockito.mock(SolicitudSqsGateway.class);
+        solicitudUseCase = new SolicitudUseCase(solicitudRepository, tipoPrestamoRepository, estadosRepository, validarUsuarioUseCase, sqsGateway, capacidadSqsGateway, solicitudSqsGateway);
     }
 
     @Test

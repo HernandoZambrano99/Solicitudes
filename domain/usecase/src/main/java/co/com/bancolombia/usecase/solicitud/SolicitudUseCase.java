@@ -259,16 +259,13 @@ public class SolicitudUseCase {
                 .flatMap(saved ->
                         Mono.zip(
                                 estadosRepository.findById(saved.getIdEstado()),
-                                tipoPrestamoRepository.findById(saved.getIdTipoPrestamo()),
-                                validarUsuarioUseCase.validarSiExiste(saved.getDocumentoIdentidad())
+                                tipoPrestamoRepository.findById(saved.getIdTipoPrestamo())
                         ).flatMap(tuple -> {
                             SolicitudDetalle detalle = SolicitudDetalle.builder()
                                     .solicitud(saved)
                                     .estado(tuple.getT1())
                                     .tipoPrestamo(tuple.getT2())
-                                    .user(tuple.getT3())
                                     .build();
-
                             if (EstadoSolicitudEnum.APROBADO.getIdEstado() == saved.getIdEstado()) {
                                 return notificarSolicitudAprobada(detalle)
                                         .thenReturn(detalle);
