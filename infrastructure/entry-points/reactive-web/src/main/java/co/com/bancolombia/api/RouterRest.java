@@ -1,5 +1,7 @@
 package co.com.bancolombia.api;
 
+import co.com.bancolombia.api.dto.EstadoSolicitudRequestDto;
+import co.com.bancolombia.api.dto.SolicitudIdRequestDto;
 import co.com.bancolombia.api.dto.SolicitudRequestDto;
 import co.com.bancolombia.api.dto.SolicitudResponseDto;
 import co.com.bancolombia.model.paginacion.PagedResponse;
@@ -98,6 +100,61 @@ public class RouterRest {
                                             description = "Listado de solicitudes filtradas y paginadas",
                                             content = @Content(schema = @Schema(implementation = PagedResponse.class))),
                                     @ApiResponse(responseCode = "400", description = "Error en los parámetros de entrada"),
+                                    @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+                            }
+                    )
+            ),
+            @RouterOperation(
+                    path = "/api/v1/solicitud/{id}",
+                    produces = {"application/json"},
+                    method = {org.springframework.web.bind.annotation.RequestMethod.PUT},
+                    beanClass = Handler.class,
+                    beanMethod = "aprobarORechazarSolicitud",
+                    operation = @Operation(
+                            operationId = "aprobarORechazarSolicitud",
+                            summary = "Aprobar o rechazar una solicitud",
+                            description = "Permite cambiar el estado de una solicitud existente (APROBADO o RECHAZADO).",
+                            parameters = {
+                                    @Parameter(in = ParameterIn.PATH, name = "id", required = true, description = "ID de la solicitud"),
+                                    @Parameter(in = ParameterIn.HEADER, name = "Authorization", required = true,
+                                            description = "Token Bearer JWT para autenticación")
+                            },
+                            requestBody = @RequestBody(
+                                    required = true,
+                                    description = "Nuevo estado de la solicitud",
+                                    content = @Content(schema = @Schema(implementation = EstadoSolicitudRequestDto.class))
+                            ),
+                            responses = {
+                                    @ApiResponse(responseCode = "200",
+                                            description = "Solicitud actualizada correctamente",
+                                            content = @Content(schema = @Schema(implementation = SolicitudResponseDto.class))),
+                                    @ApiResponse(responseCode = "400", description = "Error de validación en los datos"),
+                                    @ApiResponse(responseCode = "401", description = "Token inválido o no provisto"),
+                                    @ApiResponse(responseCode = "404", description = "Solicitud no encontrada"),
+                                    @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+                            }
+                    )
+            ),
+            @RouterOperation(
+                    path = "/api/v1/calcular-capacidad",
+                    produces = {"application/json"},
+                    method = {org.springframework.web.bind.annotation.RequestMethod.POST},
+                    beanClass = Handler.class,
+                    beanMethod = "calcularCapacidadEndeudamiento",
+                    operation = @Operation(
+                            operationId = "calcularCapacidadEndeudamiento",
+                            summary = "Calcular capacidad de endeudamiento",
+                            description = "Lanza el proceso de cálculo de capacidad de endeudamiento para una solicitud específica.",
+                            requestBody = @RequestBody(
+                                    required = true,
+                                    description = "ID de la solicitud",
+                                    content = @Content(schema = @Schema(implementation = SolicitudIdRequestDto.class))
+                            ),
+                            responses = {
+                                    @ApiResponse(responseCode = "200",
+                                            description = "Proceso lanzado correctamente",
+                                            content = @Content(mediaType = "application/json")),
+                                    @ApiResponse(responseCode = "400", description = "Error en los datos de entrada"),
                                     @ApiResponse(responseCode = "500", description = "Error interno del servidor")
                             }
                     )

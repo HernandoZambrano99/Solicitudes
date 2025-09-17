@@ -14,6 +14,7 @@ import co.com.bancolombia.model.tipoprestamo.TipoPrestamo;
 import co.com.bancolombia.model.tipoprestamo.gateways.TipoPrestamoRepository;
 import co.com.bancolombia.model.usuario.User;
 import co.com.bancolombia.usecase.ValidarUsuarioUseCase;
+import co.com.bancolombia.usecase.enums.EstadoSolicitudEnum;
 import co.com.bancolombia.usecase.exceptions.MontoFueraDeRangoException;
 import co.com.bancolombia.usecase.exceptions.SolicitudNotFoundException;
 import co.com.bancolombia.usecase.exceptions.TipoPrestamoNotFoundException;
@@ -220,6 +221,8 @@ class SolicitudUseCaseTest {
         when(validarUsuarioUseCase.validarSiExiste(solicitud.getDocumentoIdentidad()))
                 .thenReturn(Mono.just(user));
         when(sqsGateway.enviarSolicitudActualizada(any(SolicitudDetalle.class))).thenReturn(Mono.empty());
+        when(solicitudSqsGateway.reportarSolicitudAprobada(any(SolicitudDetalle.class)))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(solicitudUseCase.aprobarORechazar(idSolicitud, nuevoEstado))
                 .assertNext(detalle -> {
@@ -356,10 +359,22 @@ class SolicitudUseCaseTest {
         result.setSolicitudId(1);
         result.setDecision("APROBADO");
 
+        Estados estado = new Estados();
+        estado.setIdEstado(EstadoSolicitudEnum.APROBADO.getIdEstado());
+        estado.setNombre("APROBADO");
+
+        TipoPrestamo tipoPrestamo = new TipoPrestamo();
+        tipoPrestamo.setIdTipoPrestamo(1);
+        tipoPrestamo.setNombre("Préstamo Personal");
+
         Solicitud solicitud = SolicitudTestData.buildSolicitudValida();
 
         when(solicitudRepository.findById(1)).thenReturn(Mono.just(solicitud));
         when(solicitudRepository.save(any(Solicitud.class))).thenReturn(Mono.just(solicitud));
+        when(estadosRepository.findById(anyInt())).thenReturn(Mono.just(estado));
+        when(tipoPrestamoRepository.findById(anyInt())).thenReturn(Mono.just(tipoPrestamo));
+        when(solicitudSqsGateway.reportarSolicitudAprobada(any(SolicitudDetalle.class)))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(solicitudUseCase.actualizarEstadoConResultado(result))
                 .verifyComplete();
