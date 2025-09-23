@@ -44,6 +44,7 @@ public class SolicitudesSecurityConfig {
                         .pathMatchers("/swagger-ui.html").permitAll()
                         .pathMatchers("/webjars/swagger-ui/**").permitAll()
                         .pathMatchers("/swagger-ui/**").permitAll()
+                        .pathMatchers("/actuator/health").permitAll()
 
                         .pathMatchers(HttpMethod.GET, "/api/v1/solicitud").hasAuthority("ROLE_ASESOR")
                         .pathMatchers(HttpMethod.GET, "/api/v1/solicitud/{id}").hasAuthority("ROLE_ASESOR")
